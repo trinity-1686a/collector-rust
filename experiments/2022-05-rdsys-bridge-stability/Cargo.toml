@@ -1,0 +1,12 @@
+[package]
+name = "rdsys-bridge-stability"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+collector = { path = "../../collector/" }
+chrono = "0.4.19"
+futures = "0.3.21"
+tokio = { version = "1.17.0", features = ["macros", "rt", "rt-multi-thread"] }

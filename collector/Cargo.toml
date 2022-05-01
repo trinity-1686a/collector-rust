@@ -1,0 +1,26 @@
+[package]
+name = "collector"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-compression = { version = "0.3.12", features = ["xz", "tokio"] }
+async-walkdir = "0.2.0"
+base64 = "0.13.0"
+chrono = "0.4.19"
+futures = "0.3.21"
+nom = "7.1.1"
+rangetools = "0.1.1"
+reqwest = { version = "0.11.10", features = ["stream"] }
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0.79"
+sha2 = "0.10.2"
+thiserror = "1.0.30"
+tokio = { version = "1.17.0", features = ["fs", "io-util"] }
+tokio-tar = "0.3.0"
+
+[dev-dependencies]
+tempfile = "3.3.0"
+tokio = { version = "1.17.0", features = ["macros"] }
