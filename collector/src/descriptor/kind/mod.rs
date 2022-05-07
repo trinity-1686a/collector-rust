@@ -1,5 +1,8 @@
 mod bridge_pool_assignment;
+mod bridge_server_descriptor;
+
 pub use bridge_pool_assignment::BridgePoolAssignment;
+pub use bridge_server_descriptor::BridgeServerDescriptor;
 
 use std::fmt;
 use std::str::FromStr;
@@ -207,6 +210,9 @@ impl Descriptor {
             Type::BridgePoolAssignment => Ok(Descriptor::BridgePoolAssignment(
                 BridgePoolAssignment::parse(buff, vt.version)?,
             )),
+            Type::BridgeServerDescriptor => Ok(Descriptor::BridgeServerDescriptor(
+                BridgeServerDescriptor::parse(buff, vt.version)?,
+            )),
             t => Err(ErrorKind::UnsupportedDesc(format!(
                 "unsupported descriptor {}, not implemented",
                 t
@@ -219,11 +225,11 @@ impl Descriptor {
 #[derive(Debug)]
 pub enum Descriptor {
     BridgePoolAssignment(BridgePoolAssignment),
+    BridgeServerDescriptor(BridgeServerDescriptor),
     /*
         BandwidthFile,
         BridgeExtraInfo,
         BridgeNetworkStatus,
-        BridgeServerDescriptor,
         BridgestrapStats,
         DirKeyCertificate3,
         Directory,

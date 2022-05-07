@@ -21,6 +21,10 @@ pub(crate) mod nom_combinators {
         r
     }
 
+    pub fn word(input: &str) -> nom::IResult<&str, &str, nom::error::Error<&str>> {
+        take_till(|c| c == ' ' || c == '\n')(input)
+    }
+
     pub fn fingerprint(input: &str) -> nom::IResult<&str, &str, nom::error::Error<&str>> {
         map_parser(hex_digit1, take(40usize))(input)
     }
@@ -41,7 +45,7 @@ pub(crate) mod nom_combinators {
                 char(' '),
                 take_till(|c| c == '='),
                 char('='),
-                take_till(|c| c == ' ' || c == '\n'),
+                word,
                 peek(anychar),
             )),
         );
@@ -56,5 +60,22 @@ pub(crate) mod nom_combinators {
 
         let (i, _) = it.finish()?;
         Ok((i, kv))
+    }
+
+    pub fn sp_separated(
+        input: &str,
+    ) -> nom::IResult<&str, (&str, Vec<&str>), nom::error::Error<&str>> {
+        let (i, key) = word(input)?;
+        let mut it = iterator(i, tuple((char(' '), word, peek(anychar))));
+
+        let mut res = Vec::new();
+        for (_, word, eol) in &mut it {
+            res.push(word);
+            if eol == '\n' {
+                break;
+            }
+        }
+        let (i, _) = it.finish()?;
+        Ok((i, (key, res)))
     }
 }

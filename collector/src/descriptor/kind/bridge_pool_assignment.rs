@@ -26,16 +26,7 @@ impl BridgePoolAssignment {
         let (i, timestamp) = date(i)?;
         let (i, _) = t(line_ending(i))?;
 
-        let mut it = iterator(
-            i,
-            tuple((
-                fingerprint,
-                space1,
-                take_till(|c| c == ' ' || c == '\n'),
-                kv_space,
-                line_ending,
-            )),
-        );
+        let mut it = iterator(i, tuple((fingerprint, space1, word, kv_space, line_ending)));
 
         let data = it.fold(BTreeMap::new(), |mut data, (fp, _, pool, kv, _)| {
             data.insert(fp.to_owned(), (pool.to_owned(), kv));

@@ -3,19 +3,24 @@ use std::collections::BTreeSet;
 use chrono::{TimeZone, Utc};
 use futures::stream::StreamExt;
 
-use collector::descriptor::{kind::BridgePoolAssignment, Descriptor, Type};
+use collector::descriptor::{kind::*, Descriptor, Type};
 use collector::CollecTor;
 
 #[tokio::main]
 async fn main() {
     let collector = CollecTor::new("data").await.unwrap();
-    let start_date = Utc.ymd(2022, 2, 20).and_hms(0, 0, 0);
+    let start_date = Utc.ymd(2022, 1, 1).and_hms(0, 0, 0);
     println!("Starting download");
     collector
-        .download_descriptors(&[Type::BridgePoolAssignment], start_date.., None)
+        .download_descriptors(
+            &[Type::BridgePoolAssignment, Type::BridgeServerDescriptor],
+            start_date..,
+            None,
+        )
         .await
         .unwrap();
     println!("Download successfull, processing");
+
     let set: BTreeSet<_> =
         Box::pin(collector.stream_descriptors(Type::BridgePoolAssignment, start_date..))
             .map(|d| unwrap_bridge_pool_assignment(d.unwrap()))
@@ -29,6 +34,12 @@ async fn main() {
             previous_desc = desc;
         }
     }
+
+    let _: BTreeSet<_> =
+        Box::pin(collector.stream_descriptors(Type::BridgeServerDescriptor, start_date..))
+            .map(|d| unwrap_bridge_server_descriptor(d.unwrap()))
+            .collect()
+            .await;
 }
 
 fn unwrap_bridge_pool_assignment(desc: Descriptor) -> BridgePoolAssignment {
@@ -37,6 +48,14 @@ fn unwrap_bridge_pool_assignment(desc: Descriptor) -> BridgePoolAssignment {
         _ => panic!(),
     }
 }
+
+fn unwrap_bridge_server_descriptor(desc: Descriptor) -> BridgeServerDescriptor {
+    match desc {
+        Descriptor::BridgeServerDescriptor(r) => r,
+        _ => panic!(),
+    }
+}
+
 fn delta_desc(old: &BridgePoolAssignment, new: &BridgePoolAssignment) -> bool {
     if new.data.len() < 10 {
         return false;
