@@ -1,20 +1,16 @@
 use chrono::{TimeZone, Utc};
 use futures::stream::StreamExt;
 
-use collector::descriptor::{BridgePoolAssignment, DecodedDescriptor, Type};
+use collector::descriptor::{kind::BridgePoolAssignment, DecodedDescriptor, Type};
 use collector::CollecTor;
 
 #[tokio::main]
 async fn main() {
     let collector = CollecTor::new("data").await.unwrap();
-    let start_date = Utc.ymd(2022, 1, 1).and_hms(0, 0, 0);
+    let start_date = Utc.ymd(2022, 2, 20).and_hms(0, 0, 0);
     println!("Starting download");
     collector
-        .download_descriptors(
-            &[Type::BridgePoolAssignment, Type::BridgeServerDescriptor],
-            start_date..,
-            None,
-        )
+        .download_descriptors(&Type::ALL_TYPES, .., None)
         .await
         .unwrap();
     println!("Download successfull, starting decompression");
@@ -39,7 +35,7 @@ fn unwrap_bridge_pool_assignment(desc: DecodedDescriptor) -> BridgePoolAssignmen
 }
 fn delta_desc(old: &BridgePoolAssignment, new: &BridgePoolAssignment) -> bool {
     if new.data.len() < 10 {
-        println!("{} seems invalid", new.timestamp);
+        //println!("{} seems invalid", new.timestamp);
         return false;
     }
     let mut count = 0;
@@ -50,11 +46,22 @@ fn delta_desc(old: &BridgePoolAssignment, new: &BridgePoolAssignment) -> bool {
             }
         }
     }
-    if count > 50 {
-        println!(
+    if count >= 5 {
+        /*println!(
             "between {} and {}, {} bridges changed distribution method",
             old.timestamp, new.timestamp, count
-        );
+        );*/
+
+        for (k, v1) in &old.data {
+            if let Some(v2) = new.data.get(k) {
+                if v1.0 != v2.0 {
+                    println!(
+                        "{},{},{},{},{}",
+                        old.timestamp, new.timestamp, k, v1.0, v2.0
+                    );
+                }
+            }
+        }
     }
     true
 }

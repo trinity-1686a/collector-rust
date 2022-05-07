@@ -91,7 +91,6 @@ impl CollecTor {
         time_range: R,
         client: Option<Client>,
     ) -> Result<(), Vec<(Error, File)>> {
-        // TODO no-download mode
         let client = client.unwrap_or_else(Client::new);
         let mut downloads: Vec<_> = self
             .index
@@ -228,7 +227,7 @@ impl CollecTor {
             Ok(heap)
         } else {
             // TODO split file on @type
-            return Ok(BinaryHeap::from([Reverse(path)]));
+            Ok(BinaryHeap::from([Reverse(path)]))
         }
     }
 
