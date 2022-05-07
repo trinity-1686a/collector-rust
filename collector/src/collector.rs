@@ -1,23 +1,18 @@
 use crate::error::{Error, ErrorKind};
 use crate::Index;
 
-use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashSet};
 use std::ops::RangeBounds;
 use std::path::PathBuf;
-use std::pin::Pin;
 
-use async_compression::tokio::bufread::XzDecoder;
-use async_walkdir::WalkDir;
 use chrono::{DateTime, Utc};
 use futures::stream::{self, Stream, StreamExt, TryStreamExt};
 use rangetools::{BoundedSet, Rangetools};
 use reqwest::{Client, StatusCode};
 use sha2::{Digest, Sha256};
 use tokio::fs;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio_tar::Archive;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+use crate::descriptor::file_reader::FileReader;
 use crate::descriptor::{Descriptor, Type};
 use crate::index::File;
 
@@ -27,7 +22,6 @@ const INDEX_URL: &str = "https://collector.torproject.org/index/index.json";
 #[derive(Debug)]
 pub struct CollecTor {
     base_path: PathBuf,
-    cache_path: PathBuf,
     index_url: Option<String>,
     index: Index,
 }
@@ -45,12 +39,10 @@ impl CollecTor {
         index_url: Option<String>,
     ) -> Result<Self, Error> {
         let base_path = base_path.into();
-        let cache_path = base_path.join("cache");
-        fs::create_dir_all(&cache_path).await?;
+        fs::create_dir_all(&base_path).await?;
 
         let mut collector = CollecTor {
             base_path,
-            cache_path,
             index_url,
             index: Index::default(),
         };
@@ -162,87 +154,13 @@ impl CollecTor {
         &'a self,
         file: &'a File,
     ) -> impl Stream<Item = Result<Descriptor, Error>> + 'a {
-        use DescriptorStreamState::*;
-        stream::try_unfold(Start, move |state| async move {
-            match state {
-                Start => {
-                    let mut paths = self.dearchive(file).await?;
-                    match paths.pop() {
-                        Some(Reverse(path)) => {
-                            let mut observed_filenames = HashSet::new();
-                            observed_filenames.insert(path.file_name().unwrap().to_owned());
-                            let desc = Descriptor::new(path, file.clone());
-                            Ok(Some((desc, Set(paths))))
-                        }
-                        None => Ok(None),
-                    }
-                }
-                Set(mut paths) => match paths.pop() {
-                    Some(Reverse(path)) => {
-                        let desc = Descriptor::new(path, file.clone());
-                        Ok(Some((desc, Set(paths))))
-                    }
-                    None => Ok(None),
-                },
-            }
-        })
-    }
-
-    async fn dearchive(&self, file: &File) -> Result<BinaryHeap<Reverse<PathBuf>>, Error> {
-        let mut path = self.file_path(file);
-        if file.is_archive() {
-            let extract_path = self.cache_path(file);
-            if fs::metadata(&extract_path).await.is_err() {
-                let reader = BufReader::new(fs::File::open(&path).await?);
-                let reader: Pin<Box<dyn AsyncRead + Send + Sync>> =
-                    if path.extension().map(|ext| ext == "xz").unwrap_or(false) {
-                        path.set_extension("");
-                        Box::pin(XzDecoder::new(reader))
-                    } else {
-                        Box::pin(reader)
-                    };
-                Archive::new(reader).unpack(&extract_path).await?;
-            }
-
-            let heap = WalkDir::new(&extract_path)
-                .filter(|entry| async move {
-                    if entry
-                        .file_type()
-                        .await
-                        .map(|t| t.is_file())
-                        .unwrap_or(false)
-                    {
-                        async_walkdir::Filtering::Continue
-                    } else {
-                        async_walkdir::Filtering::Ignore
-                    }
-                })
-                .fold(BinaryHeap::new(), |mut heap, entry| async {
-                    if let Ok(entry) = entry {
-                        heap.push(Reverse(entry.path()))
-                    }
-                    heap
-                })
-                .await;
-            Ok(heap)
-        } else {
-            // TODO split file on @type
-            Ok(BinaryHeap::from([Reverse(path)]))
-        }
+        FileReader::read_file(self.file_path(file))
+            .and_then(|s| async move { Descriptor::decode(&s) })
     }
 
     fn file_path(&self, file: &File) -> PathBuf {
         self.base_path.join(&file.path)
     }
-
-    fn cache_path(&self, file: &File) -> PathBuf {
-        self.cache_path.join(&file.path)
-    }
-}
-
-enum DescriptorStreamState {
-    Start,
-    Set(BinaryHeap<Reverse<PathBuf>>),
 }
 
 struct FileDownloader<'a> {
@@ -257,10 +175,6 @@ impl<'a> FileDownloader<'a> {
 
     fn data_path(&self) -> PathBuf {
         self.collector.base_path.join(&self.file.path)
-    }
-
-    fn cache_path(&self) -> PathBuf {
-        self.collector.cache_path.join(&self.file.path)
     }
 
     fn url(&self) -> String {
@@ -302,15 +216,6 @@ impl<'a> FileDownloader<'a> {
                 "file not found and download disabled",
             )
             .into());
-        }
-
-        match fs::remove_dir_all(self.cache_path()).await {
-            Ok(_) => (),
-            Err(e) => {
-                if e.kind() != std::io::ErrorKind::NotFound {
-                    return Err(e.into());
-                }
-            }
         }
 
         let resp = client.get(&self.url()).send().await?;

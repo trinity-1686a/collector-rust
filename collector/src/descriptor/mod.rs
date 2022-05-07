@@ -1,6 +1,7 @@
+pub mod file_reader;
 pub mod kind;
 
-pub use kind::{DecodedDescriptor, Descriptor, Type, VersionnedType};
+pub use kind::{Descriptor, Type, VersionnedType};
 
 pub(crate) mod nom_combinators {
     use std::collections::HashMap;

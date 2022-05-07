@@ -2,14 +2,11 @@ mod bridge_pool_assignment;
 pub use bridge_pool_assignment::BridgePoolAssignment;
 
 use std::fmt;
-use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
-use tokio::io::AsyncReadExt;
 
 use crate::error::{Error, ErrorKind};
-use crate::index::File;
 
 /// Type of a descriptor, unversionned
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -202,33 +199,12 @@ impl<'de> Deserialize<'de> for VersionnedType {
     }
 }
 
-pub struct Descriptor {
-    path: PathBuf,
-    file: File,
-}
-
 impl Descriptor {
-    pub fn new(path: PathBuf, file: File) -> Self {
-        Descriptor { path, file }
-    }
-
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
-    pub fn file(&self) -> &File {
-        &self.file
-    }
-
-    pub async fn decode(&self) -> Result<DecodedDescriptor, Error> {
-        let mut file = tokio::fs::File::open(&self.path).await?;
-        let mut buff = String::with_capacity(128 * 1024);
-        file.read_to_string(&mut buff).await?;
-        drop(file);
-        let (buff, vt) = VersionnedType::parse(&buff)?;
+    pub fn decode(raw_descriptor: &str) -> Result<Self, Error> {
+        let (buff, vt) = VersionnedType::parse(raw_descriptor)?;
 
         match vt.ttype {
-            Type::BridgePoolAssignment => Ok(DecodedDescriptor::BridgePoolAssignment(
+            Type::BridgePoolAssignment => Ok(Descriptor::BridgePoolAssignment(
                 BridgePoolAssignment::parse(buff, vt.version)?,
             )),
             t => Err(ErrorKind::UnsupportedDesc(format!(
@@ -241,7 +217,7 @@ impl Descriptor {
 }
 
 #[derive(Debug)]
-pub enum DecodedDescriptor {
+pub enum Descriptor {
     BridgePoolAssignment(BridgePoolAssignment),
     /*
         BandwidthFile,

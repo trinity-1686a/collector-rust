@@ -4,7 +4,3 @@ members = [
     "collector",
     "experiments/2022-05-rdsys-bridge-stability",
 ]
-
-[patch.crates-io.tokio-tar]
-git = "https://github.com/trinity-1686a/tokio-tar"
-branch = "cherry-pick-fix-5"

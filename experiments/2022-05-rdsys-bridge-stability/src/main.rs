@@ -1,7 +1,9 @@
+use std::collections::BTreeSet;
+
 use chrono::{TimeZone, Utc};
 use futures::stream::StreamExt;
 
-use collector::descriptor::{kind::BridgePoolAssignment, DecodedDescriptor, Type};
+use collector::descriptor::{kind::BridgePoolAssignment, Descriptor, Type};
 use collector::CollecTor;
 
 #[tokio::main]
@@ -10,32 +12,33 @@ async fn main() {
     let start_date = Utc.ymd(2022, 2, 20).and_hms(0, 0, 0);
     println!("Starting download");
     collector
-        .download_descriptors(&Type::ALL_TYPES, .., None)
+        .download_descriptors(&[Type::BridgePoolAssignment], start_date.., None)
         .await
         .unwrap();
-    println!("Download successfull, starting decompression");
-    let mut descs =
-        Box::pin(collector.stream_descriptors(Type::BridgePoolAssignment, start_date..));
+    println!("Download successfull, processing");
+    let set: BTreeSet<_> =
+        Box::pin(collector.stream_descriptors(Type::BridgePoolAssignment, start_date..))
+            .map(|d| unwrap_bridge_pool_assignment(d.unwrap()))
+            .collect()
+            .await;
 
-    let mut previous_desc =
-        unwrap_bridge_pool_assignment(descs.next().await.unwrap().unwrap().decode().await.unwrap());
-    while let Some(desc) = descs.next().await {
-        let desc = unwrap_bridge_pool_assignment(desc.unwrap().decode().await.unwrap());
+    let mut iter = set.into_iter();
+    let mut previous_desc = iter.next().unwrap();
+    for desc in iter {
         if delta_desc(&previous_desc, &desc) {
             previous_desc = desc;
         }
     }
 }
 
-fn unwrap_bridge_pool_assignment(desc: DecodedDescriptor) -> BridgePoolAssignment {
+fn unwrap_bridge_pool_assignment(desc: Descriptor) -> BridgePoolAssignment {
     match desc {
-        DecodedDescriptor::BridgePoolAssignment(r) => r,
+        Descriptor::BridgePoolAssignment(r) => r,
         _ => panic!(),
     }
 }
 fn delta_desc(old: &BridgePoolAssignment, new: &BridgePoolAssignment) -> bool {
     if new.data.len() < 10 {
-        //println!("{} seems invalid", new.timestamp);
         return false;
     }
     let mut count = 0;

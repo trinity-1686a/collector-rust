@@ -1,10 +1,11 @@
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 
 use chrono::{DateTime, Utc};
 
 use crate::error::{Error, ErrorKind};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct BridgePoolAssignment {
     pub timestamp: DateTime<Utc>,
     pub data: BTreeMap<String, (String, HashMap<String, String>)>,
@@ -46,5 +47,17 @@ impl BridgePoolAssignment {
         t(eof(i))?;
 
         Ok(BridgePoolAssignment { timestamp, data })
+    }
+}
+
+impl Ord for BridgePoolAssignment {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.timestamp.cmp(&other.timestamp)
+    }
+}
+
+impl PartialOrd for BridgePoolAssignment {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
