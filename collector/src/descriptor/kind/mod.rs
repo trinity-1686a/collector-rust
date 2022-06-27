@@ -245,3 +245,19 @@ pub enum Descriptor {
         Torperf,
     */
 }
+
+impl Descriptor {
+    pub fn bridge_pool_assignment(self) -> Result<BridgePoolAssignment, Self> {
+        match self {
+            Descriptor::BridgePoolAssignment(d) => Ok(d),
+            _ => Err(self),
+        }
+    }
+
+    pub fn bridge_server_descriptor(self) -> Result<BridgeServerDescriptor, Self> {
+        match self {
+            Descriptor::BridgeServerDescriptor(d) => Ok(d),
+            _ => Err(self),
+        }
+    }
+}

@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 
 use crate::error::{Error, ErrorKind};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
 pub struct BridgeServerDescriptor {
     pub timestamp: DateTime<Utc>,
@@ -78,6 +78,18 @@ impl BridgeServerDescriptor {
             distribution_request,
         })
     }
+
+    /// Create a dummy descriptor to allow range over BTree of BridgeServerDescriptor
+    pub fn empty(timestamp: DateTime<Utc>) -> Self {
+        BridgeServerDescriptor {
+            timestamp,
+            name: String::new(),
+            ipv4: Ipv4Addr::BROADCAST,
+            or_port: 0,
+            fingerprint: String::new(),
+            distribution_request: String::new(),
+        }
+    }
 }
 
 fn get_uniq<'a>(
@@ -120,9 +132,9 @@ fn get_opt<'a>(
 
 impl Ord for BridgeServerDescriptor {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.fingerprint
-            .cmp(&other.fingerprint)
-            .then(self.timestamp.cmp(&other.timestamp))
+        self.timestamp
+            .cmp(&other.timestamp)
+            .then(self.fingerprint.cmp(&other.fingerprint))
     }
 }
 
