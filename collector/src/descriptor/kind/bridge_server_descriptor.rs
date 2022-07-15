@@ -5,6 +5,7 @@ use std::net::Ipv4Addr;
 use chrono::{DateTime, Utc};
 
 use crate::error::{Error, ErrorKind};
+use super::DescriptorLine;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
@@ -29,18 +30,17 @@ impl BridgeServerDescriptor {
             ))
             .into());
         }
-        let mut it = iterator(input, tuple((sp_separated, line_ending)));
-        let desc: HashMap<&str, Vec<Vec<&str>>> =
-            it.fold(HashMap::new(), |mut desc, ((key, val), _)| {
-                // TODO this is slighlty incorrect: a single key can have multiple lines
-                desc.entry(key).or_default().push(val);
+        let mut it = iterator(input, DescriptorLine::parse);
+        let mut desc: HashMap<&str, Vec<DescriptorLine>> =
+            it.fold(HashMap::new(), |mut desc, line| {
+                desc.entry(line.name).or_default().push(line);
                 desc
             });
         let (i, _) = it.finish()?;
         t(eof(i))?;
 
         let (name, ipv4, or_port) = {
-            let v = get_uniq(&desc, "router", 5)?;
+            let v = take_uniq(&mut desc, "router", 5)?;
 
             (
                 v[0].to_owned(),
@@ -50,19 +50,19 @@ impl BridgeServerDescriptor {
         };
 
         let timestamp = {
-            let v = get_uniq(&desc, "published", 2)?;
+            let v = take_uniq(&mut desc, "published", 2)?;
 
             let date_str = format!("{} {}", v[0], v[1]);
             date(&date_str)?.1
         };
 
         let fingerprint = {
-            let v = get_uniq(&desc, "fingerprint", 10)?;
+            let v = take_uniq(&mut desc, "fingerprint", 10)?;
             v.join("")
         };
 
         let distribution_request =
-            if let Some(v) = get_opt(&desc, "bridge-distribution-request", 1)? {
+            if let Some(v) = take_opt(&mut desc, "bridge-distribution-request", 1)? {
                 v[0]
             } else {
                 "any"
@@ -92,16 +92,16 @@ impl BridgeServerDescriptor {
     }
 }
 
-fn get_uniq<'a>(
-    map: &'a HashMap<&str, Vec<Vec<&str>>>,
+fn take_uniq<'a>(
+    map: &'a mut HashMap<&str, Vec<DescriptorLine>>,
     key: &str,
     len: usize,
-) -> Result<&'a [&'a str], Error> {
-    if let Some(v) = map.get(key) {
+) -> Result<Vec<&'a str>, Error> {
+    if let Some(mut v) = map.remove(key) {
         if v.len() != 1 {
             return Err(ErrorKind::MalformedDesc.into());
         }
-        let v = &v[0];
+        let v = v.pop().unwrap().values;
         if v.len() < len {
             return Err(ErrorKind::MalformedDesc.into());
         }
@@ -111,16 +111,16 @@ fn get_uniq<'a>(
     }
 }
 
-fn get_opt<'a>(
-    map: &'a HashMap<&str, Vec<Vec<&str>>>,
+fn take_opt<'a>(
+    map: &'a mut HashMap<&str, Vec<DescriptorLine>>,
     key: &str,
     len: usize,
-) -> Result<Option<&'a [&'a str]>, Error> {
-    if let Some(v) = map.get(key) {
+) -> Result<Option<Vec<&'a str>>, Error> {
+    if let Some(mut v) = map.remove(key) {
         if v.len() != 1 {
             return Err(ErrorKind::MalformedDesc.into());
         }
-        let v = &v[0];
+        let v = v.pop().unwrap().values;
         if v.len() < len {
             return Err(ErrorKind::MalformedDesc.into());
         }

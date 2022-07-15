@@ -155,7 +155,7 @@ impl CollecTor {
         file: &'a File,
     ) -> impl Stream<Item = Result<Descriptor, Error>> + 'a {
         FileReader::read_file(self.file_path(file))
-            .and_then(|s| async move { Descriptor::decode(&s) })
+            .and_then(|s| futures::future::ready(Descriptor::decode(&s)))
     }
 
     fn file_path(&self, file: &File) -> PathBuf {

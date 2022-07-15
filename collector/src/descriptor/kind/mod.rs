@@ -261,3 +261,24 @@ impl Descriptor {
         }
     }
 }
+
+struct DescriptorLine<'a> {
+    pub name: &'a str,
+    pub values: Vec<&'a str>,
+    pub cert: Option<&'a str>,
+}
+
+impl<'a> DescriptorLine<'a> {
+    pub fn parse(input: &'a str) -> nom::IResult<&str, Self, nom::error::Error<&str>> {
+        use crate::descriptor::nom_combinators::*;
+        let (i, (name, values)) = sp_separated(input)?;
+        let (i, _) = line_ending(i)?;
+        let (i, cert) = opt(cert)(i)?;
+
+        Ok((i, DescriptorLine {
+            name,
+            values,
+            cert,
+        }))
+    }
+}

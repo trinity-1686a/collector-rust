@@ -41,7 +41,8 @@ impl FileReader {
             } else {
                 let body = fs::read_to_string(&path).await?;
                 let mut body = body.as_str();
-                while let Some(idx) = body[1..].find("@type") {
+                while let Some(idx) = body[..].find("\n@type") {
+                    // account for the '\n'
                     let idx = idx + 1;
                     yield body[..idx].to_owned();
                     body = &body[idx..];
