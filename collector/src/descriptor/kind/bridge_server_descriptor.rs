@@ -15,8 +15,8 @@ pub struct BridgeServerDescriptor {
     pub ipv4: Ipv4Addr,
     pub or_port: u16,
     pub master_key: String,
-    pub ipv6: Ipv6Addr,
-    pub or_port_v6: u16,
+    pub ipv6: Option<Ipv6Addr>,
+    pub or_port_v6: Option<u16>,
     pub platform: String,
     pub fingerprint: String,
     pub uptime: u64,
@@ -63,13 +63,18 @@ impl BridgeServerDescriptor {
         };
 
         let (ipv6, or_port_v6) = {
-            let v = take_uniq(&mut desc, "or-address", 1)?;
-            let t = v[0].split("]:").collect::<Vec<_>>();
-
-            (t[0][1..].parse().unwrap(), t[1].parse().unwrap())
+            let v = take_opt(&mut desc, "or-address", 1)?;
+            if let Some(t) = v.map(|x| x[0].split("]:").collect::<Vec<_>>()) {
+                (
+                    Some(t[0][1..].parse().unwrap()),
+                    Some(t[1].parse().unwrap()),
+                )
+            } else {
+                (None, None)
+            }
         };
 
-        let platform= {
+        let platform = {
             let v = take_uniq(&mut desc, "platform", 1)?;
             v.join(" ")
         };
@@ -125,8 +130,8 @@ impl BridgeServerDescriptor {
             ipv4: Ipv4Addr::BROADCAST,
             or_port: 0,
             master_key: String::new(),
-            ipv6: Ipv6Addr::UNSPECIFIED,
-            or_port_v6: 0,
+            ipv6: None,
+            or_port_v6: None,
             platform: String::new(),
             fingerprint: String::new(),
             uptime: 0,
