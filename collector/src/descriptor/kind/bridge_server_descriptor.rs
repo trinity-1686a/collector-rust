@@ -27,8 +27,8 @@ pub struct BridgeServerDescriptor {
     pub contact: Option<String>,
     pub distribution_request: String,
     pub onion_key: String,
-    pub reject: Option<Vec<String>>,
-    pub accept: Option<Vec<String>>,
+    pub reject: Vec<String>,
+    pub accept: Vec<String>,
     pub tunnelled: bool,
     pub router_sha256: String,
     pub router: String,
@@ -49,16 +49,12 @@ impl BridgeServerDescriptor {
         let mut it = iterator(input, DescriptorLine::parse);
         let mut desc: HashMap<&str, Vec<DescriptorLine>> =
             it.fold(HashMap::new(), |mut desc, line| {
-                println!("{:?}", line);
                 desc.entry(line.name).or_default().push(line);
                 desc
             });
         let (i, _) = it.finish()?;
         t(eof(i))?;
 
-        println!("{:?}", desc);
-
-        println!("router");
         let (name, ipv4, or_port) = {
             let v = take_uniq(&mut desc, "router", 5)?;
 
@@ -69,13 +65,11 @@ impl BridgeServerDescriptor {
             )
         };
 
-        println!("master-key-ed25519");
         let master_key = {
             let v = take_uniq(&mut desc, "master-key-ed25519", 1)?;
             v[0].to_owned()
         };
 
-        println!("or-address");
         let (ipv6, or_port_v6) = {
             let v = take_opt(&mut desc, "or-address", 1)?;
             if let Some(t) = v.map(|x| x[0].split("]:").collect::<Vec<_>>()) {
@@ -88,13 +82,11 @@ impl BridgeServerDescriptor {
             }
         };
 
-        println!("platform");
         let platform = {
             let v = take_uniq(&mut desc, "platform", 1)?;
             v.join(" ")
         };
 
-        println!("proto");
         let proto = {
             let v = take_uniq(&mut desc, "proto", 12)?;
             let it = v.iter();
@@ -106,7 +98,6 @@ impl BridgeServerDescriptor {
             res
         };
 
-        println!("published");
         let timestamp = {
             let v = take_uniq(&mut desc, "published", 2)?;
 
@@ -114,19 +105,16 @@ impl BridgeServerDescriptor {
             date(&date_str)?.1
         };
 
-        println!("fingerprint");
         let fingerprint = {
             let v = take_uniq(&mut desc, "fingerprint", 10)?;
             v.join("")
         };
 
-        println!("uptime");
         let uptime = {
             let v = take_uniq(&mut desc, "uptime", 1)?;
             v[0].parse()?
         };
 
-        println!("bandwidth");
         let bandwidth = {
             let v = take_uniq(&mut desc, "bandwidth", 3)?;
             (
@@ -136,13 +124,11 @@ impl BridgeServerDescriptor {
             )
         };
 
-        println!("extra-info-digest");
         let extra_info = {
             let v = take_uniq(&mut desc, "extra-info-digest", 1)?;
             v.join(" ")
         };
 
-        println!("hidden-service-dir");
         let hidden_service = {
             if let Some(_) = take_opt(&mut desc, "hidden-service-dir", 0)? {
                 true
@@ -151,10 +137,8 @@ impl BridgeServerDescriptor {
             }
         };
 
-        println!("contact");
         let contact = { take_opt(&mut desc, "contact", 1)?.map(|v| v.join(" ")) };
 
-        println!("bridge-distribution-request");
         let distribution_request =
             if let Some(v) = take_opt(&mut desc, "bridge-distribution-request", 1)? {
                 v[0]
@@ -163,31 +147,27 @@ impl BridgeServerDescriptor {
             }
             .to_owned();
 
-        println!("ntor-onion-key");
         let onion_key = {
             let v = take_uniq(&mut desc, "ntor-onion-key", 1)?;
             v[0].to_owned()
         };
 
-        println!("reject");
         let reject = {
             if let Some(v) = take_multi_opt(&mut desc, "reject", 1)? {
-                Some(v.iter().map(|&e| { e.to_owned()}).collect::<Vec<_>>())
+                v.iter().map(|&e| { e.to_owned()}).collect::<Vec<_>>()
             } else {
-                None
+                Vec::new()
             }
         };
 
-        println!("accept");
         let accept = {
             if let Some(v) = take_multi_opt(&mut desc, "accept", 1)? {
-                Some(v.iter().map(|&e| { e.to_owned()}).collect::<Vec<_>>())
+                v.iter().map(|&e| { e.to_owned()}).collect::<Vec<_>>()
             } else {
-                None
+                Vec::new()
             }
         };
 
-        println!("tunnelled-dir-server");
         let tunnelled = {
             if let Some(_) = take_opt(&mut desc, "tunnelled-dir-server", 0)? {
                 true
@@ -196,19 +176,16 @@ impl BridgeServerDescriptor {
             }
         };
 
-        println!("router-digest-sha256");
         let router_sha256 = {
             let v = take_uniq(&mut desc, "router-digest-sha256", 1)?;
             v[0].to_owned()
         };
 
-        println!("router-digest");
         let router = {
             let v = take_uniq(&mut desc, "router-digest", 1)?;
             v[0].to_owned()
         };
 
-        println!("end");
         Ok(BridgeServerDescriptor {
             timestamp,
             name,
@@ -255,8 +232,8 @@ impl BridgeServerDescriptor {
             contact: None,
             distribution_request: String::new(),
             onion_key: String::new(),
-            reject: None,
-            accept: None,
+            reject: Vec::new(),
+            accept: Vec::new(),
             tunnelled: false,
             router_sha256: String::new(),
             router: String::new(),

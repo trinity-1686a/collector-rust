@@ -302,7 +302,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_bridge_server_descriptor() {
-        let res = read_test_file("tests/toto").await;
+        let res = read_test_file("tests/bridge_server_descriptor_test").await;
         println!("{:?}", res.first());
         // res.iter().for_each(|d| {
         //     if let Ok(x) = d {
