@@ -1,0 +1,19 @@
+@type bridge-server-descriptor 1.2
+router Sr2Sponsor96Br114 10.178.88.199 58247 0 0
+master-key-ed25519 5Tw7gZWB6LHRWapUKT9wFrlrPkryRcUEctBnfXe2rZY
+or-address [fd9f:2e19:3bcf::ca:981b]:58247
+platform Tor 0.4.7.7 on Linux
+proto Cons=1-2 Desc=1-2 DirCache=2 FlowCtrl=1-2 HSDir=2 HSIntro=4-5 HSRend=1-2 Link=1-5 LinkAuth=1,3 Microdesc=1-2 Padding=2 Relay=1-4
+published 2022-07-14 20:07:05
+fingerprint 8C85 FCF1 2FB3 512F F4C5 8E33 C0FC D9F7 C5B9 EEF6
+uptime 3062540
+bandwidth 1073741824 1073741824 4885298
+extra-info-digest C49447D79A3FC483B65943912F5A992EC8ACB39C 8A5vM591ZYqRGOIAEZbp/7PF9KpdHbwpoWcSwioLPfs
+hidden-service-dir
+contact hi
+bridge-distribution-request moat
+ntor-onion-key LxPfZiET1BkCMos/h85BI13ZQmU7Ft55Ao/ji9t2Ei4
+reject *:*
+tunnelled-dir-server
+router-digest-sha256 CjcmdyflR40CO9twKK3xse7ygv8CpROx/2vXVriNmts
+router-digest 0A7398D63C4615D8263273D825F2FD88DCD0EB69
