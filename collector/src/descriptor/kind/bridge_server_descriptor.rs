@@ -20,6 +20,7 @@ pub struct BridgeServerDescriptor {
     pub platform: String,
     pub fingerprint: String,
     pub uptime: u64,
+    pub bandwidth: (u64, u64, u64),
     pub contact: Option<String>,
     pub distribution_request: String,
     // many fields are left unparsed
@@ -96,6 +97,15 @@ impl BridgeServerDescriptor {
             v[0].parse()?
         };
 
+        let bandwidth = {
+            let v = take_uniq(&mut desc, "bandwidth", 3)?;
+            (
+                v[0].parse().unwrap(),
+                v[1].parse().unwrap(),
+                v[2].parse().unwrap(),
+            )
+        };
+
         let contact = { take_opt(&mut desc, "contact", 1)?.map(|v| v.join(" ")) };
 
         let distribution_request =
@@ -117,6 +127,7 @@ impl BridgeServerDescriptor {
             platform,
             fingerprint,
             uptime,
+            bandwidth,
             contact,
             distribution_request,
         })
@@ -135,6 +146,7 @@ impl BridgeServerDescriptor {
             platform: String::new(),
             fingerprint: String::new(),
             uptime: 0,
+            bandwidth: (0, 0, 0),
             contact: None,
             distribution_request: String::new(),
         }
