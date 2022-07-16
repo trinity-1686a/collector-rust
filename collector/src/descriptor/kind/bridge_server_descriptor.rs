@@ -63,8 +63,6 @@ impl BridgeServerDescriptor {
         let (i, _) = it.finish()?;
         t(eof(i))?;
 
-        println!("{:?}", desc);
-
         let (name, ipv4, or_port) = {
             let v = take_uniq(&mut desc, "router", 5)?;
 
