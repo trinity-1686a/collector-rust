@@ -8,6 +8,12 @@ use super::DescriptorLine;
 use crate::error::{Error, ErrorKind};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Network {
+    Accept(String),
+    Reject(String),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
 pub struct BridgeServerDescriptor {
     pub timestamp: DateTime<Utc>,
@@ -27,8 +33,7 @@ pub struct BridgeServerDescriptor {
     pub contact: Option<String>,
     pub distribution_request: String,
     pub onion_key: String,
-    pub reject: Vec<String>,
-    pub accept: Vec<String>,
+    pub accept_reject: Vec<Network>,
     pub tunnelled: bool,
     pub router_sha256: String,
     pub router: String,
@@ -49,11 +54,16 @@ impl BridgeServerDescriptor {
         let mut it = iterator(input, DescriptorLine::parse);
         let mut desc: HashMap<&str, Vec<DescriptorLine>> =
             it.fold(HashMap::new(), |mut desc, line| {
-                desc.entry(line.name).or_default().push(line);
+                match line.name {
+                    "reject" | "accept" => desc.entry("accept reject").or_default().push(line),
+                    _ => desc.entry(line.name).or_default().push(line),
+                }
                 desc
             });
         let (i, _) = it.finish()?;
         t(eof(i))?;
+
+        println!("{:?}", desc);
 
         let (name, ipv4, or_port) = {
             let v = take_uniq(&mut desc, "router", 5)?;
@@ -91,8 +101,9 @@ impl BridgeServerDescriptor {
             let v = take_uniq(&mut desc, "proto", 12)?;
             let it = v.iter();
             let res: HashMap<String, String> = it.fold(HashMap::new(), |mut res, val| {
-                let t = val.split("=").collect::<Vec<_>>();
-                res.entry(t[0].to_owned()).or_insert(t[1].to_owned());
+                let t = val.split('=').collect::<Vec<_>>();
+                res.entry(t[0].to_owned())
+                    .or_insert_with(|| t[1].to_owned());
                 res
             });
             res
@@ -129,13 +140,7 @@ impl BridgeServerDescriptor {
             v.join(" ")
         };
 
-        let hidden_service = {
-            if let Some(_) = take_opt(&mut desc, "hidden-service-dir", 0)? {
-                true
-            } else {
-                false
-            }
-        };
+        let hidden_service = matches!(take_opt(&mut desc, "hidden-service-dir", 0)?, Some(_));
 
         let contact = { take_opt(&mut desc, "contact", 1)?.map(|v| v.join(" ")) };
 
@@ -152,29 +157,18 @@ impl BridgeServerDescriptor {
             v[0].to_owned()
         };
 
-        let reject = {
-            if let Some(v) = take_multi_opt(&mut desc, "reject", 1)? {
-                v.iter().map(|&e| { e.to_owned()}).collect::<Vec<_>>()
-            } else {
-                Vec::new()
-            }
+        let accept_reject = {
+            let v = take_multi_descriptor_lines(&mut desc, "accept reject", 1)?;
+            v.iter()
+                .map(|e| match e.name {
+                    "accept" => Network::Accept(e.values[0].to_owned()),
+                    "reject" => Network::Reject(e.values[0].to_owned()),
+                    _ => panic!("parsing went wrong"),
+                })
+                .collect()
         };
 
-        let accept = {
-            if let Some(v) = take_multi_opt(&mut desc, "accept", 1)? {
-                v.iter().map(|&e| { e.to_owned()}).collect::<Vec<_>>()
-            } else {
-                Vec::new()
-            }
-        };
-
-        let tunnelled = {
-            if let Some(_) = take_opt(&mut desc, "tunnelled-dir-server", 0)? {
-                true
-            } else {
-                false
-            }
-        };
+        let tunnelled = matches!(take_opt(&mut desc, "tunnelled-dir-server", 0)?, Some(_));
 
         let router_sha256 = {
             let v = take_uniq(&mut desc, "router-digest-sha256", 1)?;
@@ -204,8 +198,7 @@ impl BridgeServerDescriptor {
             contact,
             distribution_request,
             onion_key,
-            reject,
-            accept,
+            accept_reject,
             tunnelled,
             router_sha256,
             router,
@@ -232,8 +225,7 @@ impl BridgeServerDescriptor {
             contact: None,
             distribution_request: String::new(),
             onion_key: String::new(),
-            reject: Vec::new(),
-            accept: Vec::new(),
+            accept_reject: Vec::new(),
             tunnelled: false,
             router_sha256: String::new(),
             router: String::new(),
@@ -260,30 +252,25 @@ fn take_uniq<'a>(
     }
 }
 
-fn take_multi_opt<'a>(
+fn take_multi_descriptor_lines<'a>(
     map: &'a mut HashMap<&str, Vec<DescriptorLine>>,
-    key: &'a str,
+    key: &str,
     len: usize,
-) -> Result<Option<Vec<&'a str>>, Error> {
+) -> Result<Vec<DescriptorLine<'a>>, Error> {
     if let Some(v) = map.remove(key) {
-        let desc = v.iter().fold(
-            DescriptorLine {
-                name: key,
-                values: Vec::new(),
-                cert: None,
-            },
-            |mut acc, line| {
-                line.values.iter().for_each(|t| acc.values.push(t));
+        let format_ok = v.iter().fold(true, |acc, e| {
+            if e.values.len() < len {
+                false
+            } else {
                 acc
-            },
-        );
-        let v = desc.values;
-        if v.len() < len {
+            }
+        });
+        if v.len() < len || !format_ok {
             return Err(ErrorKind::MalformedDesc.into());
         }
-        Ok(Some(v))
+        Ok(v)
     } else {
-        Ok(None)
+        Err(ErrorKind::MalformedDesc.into())
     }
 }
 
