@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, SocketAddrV6};
 use std::{cmp::Ordering, net::Ipv6Addr};
 
 use chrono::{DateTime, Utc};
@@ -80,10 +80,11 @@ impl BridgeServerDescriptor {
 
         let (ipv6, or_port_v6) = {
             let v = take_opt(&mut desc, "or-address", 1)?;
-            if let Some(t) = v.map(|x| x[0].split("]:").collect::<Vec<_>>()) {
+            if let Some(t) = v.map(|x| x[0]) {
+                let u = t.parse::<SocketAddrV6>()?;
                 (
-                    Some(t[0][1..].parse().unwrap()),
-                    Some(t[1].parse().unwrap()),
+                    Some(u.ip().to_owned()),
+                    Some(u.port()),
                 )
             } else {
                 (None, None)
