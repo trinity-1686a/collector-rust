@@ -82,10 +82,7 @@ impl BridgeServerDescriptor {
             let v = take_opt(&mut desc, "or-address", 1)?;
             if let Some(t) = v.map(|x| x[0]) {
                 let u = t.parse::<SocketAddrV6>()?;
-                (
-                    Some(u.ip().to_owned()),
-                    Some(u.port()),
-                )
+                (Some(u.ip().to_owned()), Some(u.port()))
             } else {
                 (None, None)
             }
@@ -100,10 +97,12 @@ impl BridgeServerDescriptor {
             let v = take_uniq(&mut desc, "proto", 12)?;
             let it = v.iter();
             let res: HashMap<String, String> = it.fold(HashMap::new(), |mut res, val| {
-                let t = val.split('=').collect::<Vec<_>>();
-                res.entry(t[0].to_owned())
-                    .or_insert_with(|| t[1].to_owned());
-                res
+                if let Some(t) = val.split_once('=') {
+                    res.entry(t.0.to_owned()).or_insert_with(|| t.1.to_owned());
+                    res
+                } else {
+                    res
+                }
             });
             res
         };
@@ -127,11 +126,7 @@ impl BridgeServerDescriptor {
 
         let bandwidth = {
             let v = take_uniq(&mut desc, "bandwidth", 3)?;
-            (
-                v[0].parse().unwrap(),
-                v[1].parse().unwrap(),
-                v[2].parse().unwrap(),
-            )
+            (v[0].parse()?, v[1].parse()?, v[2].parse()?)
         };
 
         let extra_info = {
@@ -139,7 +134,7 @@ impl BridgeServerDescriptor {
             v.join(" ")
         };
 
-        let hidden_service = matches!(take_opt(&mut desc, "hidden-service-dir", 0)?, Some(_));
+        let hidden_service = take_opt(&mut desc, "hidden-service-dir", 0)?.is_some();
 
         let contact = { take_opt(&mut desc, "contact", 1)?.map(|v| v.join(" ")) };
 
@@ -167,7 +162,7 @@ impl BridgeServerDescriptor {
                 .collect()
         };
 
-        let tunnelled = matches!(take_opt(&mut desc, "tunnelled-dir-server", 0)?, Some(_));
+        let tunnelled = take_opt(&mut desc, "tunnelled-dir-server", 0)?.is_some();
 
         let router_sha256 = {
             let v = take_uniq(&mut desc, "router-digest-sha256", 1)?;
@@ -257,14 +252,8 @@ fn take_multi_descriptor_lines<'a>(
     len: usize,
 ) -> Result<Vec<DescriptorLine<'a>>, Error> {
     if let Some(v) = map.remove(key) {
-        let format_ok = v.iter().fold(true, |acc, e| {
-            if e.values.len() < len {
-                false
-            } else {
-                acc
-            }
-        });
-        if v.len() < len || !format_ok {
+        let format_ok = v.iter().all(|elem| elem.values.len() >= len);
+        if !format_ok {
             return Err(ErrorKind::MalformedDesc.into());
         }
         Ok(v)
