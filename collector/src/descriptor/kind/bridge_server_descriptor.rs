@@ -68,8 +68,8 @@ impl BridgeServerDescriptor {
 
             (
                 v[0].to_owned(),
-                v[1].parse().unwrap(),
-                v[2].parse().unwrap(),
+                v[1].parse()?,
+                v[2].parse()?,
             )
         };
 
