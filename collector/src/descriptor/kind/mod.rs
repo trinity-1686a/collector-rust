@@ -1,6 +1,9 @@
+mod utils;
+mod bridge_extra_info;
 mod bridge_pool_assignment;
 mod bridge_server_descriptor;
 
+pub use bridge_extra_info::BridgeExtraInfo;
 pub use bridge_pool_assignment::BridgePoolAssignment;
 pub use bridge_server_descriptor::BridgeServerDescriptor;
 
@@ -207,6 +210,9 @@ impl Descriptor {
         let (buff, vt) = VersionnedType::parse(raw_descriptor)?;
 
         match vt.ttype {
+            Type::BridgeExtraInfo => Ok(Descriptor::BridgeExtraInfo(
+                BridgeExtraInfo::parse(buff, vt.version)?,
+            )),
             Type::BridgePoolAssignment => Ok(Descriptor::BridgePoolAssignment(
                 BridgePoolAssignment::parse(buff, vt.version)?,
             )),
@@ -224,11 +230,11 @@ impl Descriptor {
 
 #[derive(Debug)]
 pub enum Descriptor {
+    BridgeExtraInfo(BridgeExtraInfo),
     BridgePoolAssignment(BridgePoolAssignment),
     BridgeServerDescriptor(BridgeServerDescriptor),
     /*
         BandwidthFile,
-        BridgeExtraInfo,
         BridgeNetworkStatus,
         BridgestrapStats,
         DirKeyCertificate3,
@@ -247,6 +253,13 @@ pub enum Descriptor {
 }
 
 impl Descriptor {
+    pub fn bridge_extra_info(self) -> Result<BridgeExtraInfo, Self> {
+        match self {
+            Descriptor::BridgeExtraInfo(d) => Ok(d),
+            _ => Err(self),
+        }
+    }
+
     pub fn bridge_pool_assignment(self) -> Result<BridgePoolAssignment, Self> {
         match self {
             Descriptor::BridgePoolAssignment(d) => Ok(d),
@@ -263,7 +276,7 @@ impl Descriptor {
 }
 
 #[derive(Debug)]
-struct DescriptorLine<'a> {
+pub struct DescriptorLine<'a> {
     pub name: &'a str,
     pub values: Vec<&'a str>,
     pub cert: Option<&'a str>,
@@ -313,5 +326,13 @@ mod tests {
         res.iter().for_each(|d| {
             assert!(d.is_ok());
         });
+    }
+
+    #[tokio::test]
+    async fn test_bridge_extra_info() {
+        let res = read_test_file("tests/bridge_extra_info_test").await;
+        println!("{:?}", res);
+        assert_eq!(res.len(), 1);
+        assert!(res[0].is_ok());
     }
 }
