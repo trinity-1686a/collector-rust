@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, num, net};
 
 use thiserror::Error;
 
@@ -13,6 +13,10 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
     #[error("collector error: {0}")]
     Collector(#[from] ErrorKind),
+    #[error("ParseInt error: {0}")]
+    ParseInt(#[from] num::ParseIntError),
+    #[error("ParseIpV6 error: {0}")]
+    ParseIpV6(#[from] net::AddrParseError),
 }
 
 #[derive(Debug, Clone)]
@@ -51,3 +55,5 @@ where T: nom::error::ParseError<&'a str> {
 */
 
 impl std::error::Error for ErrorKind {}
+
+

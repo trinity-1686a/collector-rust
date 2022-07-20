@@ -262,6 +262,7 @@ impl Descriptor {
     }
 }
 
+#[derive(Debug)]
 struct DescriptorLine<'a> {
     pub name: &'a str,
     pub values: Vec<&'a str>,
@@ -280,5 +281,37 @@ impl<'a> DescriptorLine<'a> {
             values,
             cert,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::descriptor::file_reader::FileReader;
+
+    use futures::stream::{StreamExt, TryStreamExt};
+
+    use super::*;
+
+    async fn read_test_file(filename: &str) -> Vec<Result<Descriptor,Error>> {
+        let desc = FileReader::read_file(filename)
+            .and_then(|s| async move { Descriptor::decode(&s) })
+            .collect::<Vec<_>>()
+            .await;
+        desc
+    }
+
+    #[tokio::test]
+    async fn test_bridge_server_descriptor() {
+        let res = read_test_file("tests/bridge_server_descriptor_test").await;
+        assert_eq!(res.len(), 1);
+        assert!(res[0].is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_bridge_server_descriptors () {
+        let res = read_test_file("tests/bridge_server_descriptor_ex").await;
+        res.iter().for_each(|d| {
+            assert!(d.is_ok());
+        });
     }
 }
