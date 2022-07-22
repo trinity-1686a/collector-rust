@@ -1,5 +1,5 @@
-use std::{cmp::Ordering, collections::HashMap};
 use std::num::ParseIntError;
+use std::{cmp::Ordering, collections::HashMap};
 
 use chrono::{DateTime, Utc};
 
@@ -72,22 +72,22 @@ pub struct BridgeExtraInfo {
     pub geoip: String,
     pub geoip6: String,
     pub dirreq_stats_end: (DateTime<Utc>, u64),
-    pub dirreq_v3_ips: HashMap<String,String>,
-    pub dirreq_v3_reqs: HashMap<String,String>,
-    pub dirreq_v3_resp: HashMap<String,String>,
-    pub dirreq_v3_direct_dl: HashMap<String,String>,
-    pub dirreq_v3_tunneled_dl: HashMap<String,String>,
+    pub dirreq_v3_ips: HashMap<String, String>,
+    pub dirreq_v3_reqs: HashMap<String, String>,
+    pub dirreq_v3_resp: HashMap<String, String>,
+    pub dirreq_v3_direct_dl: HashMap<String, String>,
+    pub dirreq_v3_tunneled_dl: HashMap<String, String>,
     pub hidserv_stats_end: (DateTime<Utc>, u64),
-    // hidserv-rend-relayed-cells
-    // hidserv-dir-onions-seen
+    pub hidserv_rend_relayed_cells: (String, HashMap<String, String>),
+    pub hidserv_dir_onions_seen: (String, HashMap<String, String>),
     pub hidserv_v3_stats_end: (DateTime<Utc>, u64),
-    // hidserv-rend-v3-relayed-cells
-    // hidserv-dir-v3-onions-seen
-    // padding-counts
+    pub hidserv_rend_v3_relayed_cells: (String, HashMap<String, String>),
+    pub hidserv_dir_v3_onions_seen: (String, HashMap<String, String>),
+    pub padding_counts: (DateTime<Utc>, u64, HashMap<String, String>),
     pub bridge_stats_end: (DateTime<Utc>, u64),
-    // bridge-ips
-    // bridge-ip-versions
-    // bridge-ip-transports
+    pub bridge_ips: HashMap<String, String>,
+    pub bridge_ip_versions: HashMap<String, String>,
+    pub bridge_ip_transports: HashMap<String, String>,
     pub router_sha256: String,
     pub router: String,
 }
@@ -158,6 +158,16 @@ impl BridgeExtraInfo {
             History::from_parsed_vec(&v)?
         };
 
+        let geoip = {
+            let v = take_uniq(&mut desc, "geoip-db-digest", 1)?;
+            v[0].to_owned()
+        };
+
+        let geoip6 = {
+            let v = take_uniq(&mut desc, "geoip6-db-digest", 1)?;
+            v[0].to_owned()
+        };
+
         let dirreq_stats_end = {
             let v = take_uniq(&mut desc, "dirreq-stats-end", 3)?;
             let date_str = format!("{} {}", v[0], v[1]);
@@ -202,11 +212,42 @@ impl BridgeExtraInfo {
             (date(&date_str)?.1, v[2][1..].parse()?)
         };
 
+        let hidserv_rend_relayed_cells = {
+            let v = take_uniq(&mut desc, "hidserv-rend-relayed-cells", 2)?;
+            (v[0].to_owned(), hashmap_from_kv_vec(v[1..].to_vec()))
+        };
+
+        let hidserv_dir_onions_seen = {
+            let v = take_uniq(&mut desc, "hidserv-dir-onions-seen", 2)?;
+            (v[0].to_owned(), hashmap_from_kv_vec(v[1..].to_vec()))
+        };
+
         let hidserv_v3_stats_end = {
             let v = take_uniq(&mut desc, "hidserv-v3-stats-end", 3)?;
             let date_str = format!("{} {}", v[0], v[1]);
 
             (date(&date_str)?.1, v[2][1..].parse()?)
+        };
+
+        let hidserv_rend_v3_relayed_cells = {
+            let v = take_uniq(&mut desc, "hidserv-rend-v3-relayed-cells", 2)?;
+            (v[0].to_owned(), hashmap_from_kv_vec(v[1..].to_vec()))
+        };
+
+        let hidserv_dir_v3_onions_seen = {
+            let v = take_uniq(&mut desc, "hidserv-dir-v3-onions-seen", 2)?;
+            (v[0].to_owned(), hashmap_from_kv_vec(v[1..].to_vec()))
+        };
+
+        let padding_counts = {
+            let v = take_uniq(&mut desc, "bridge-stats-end", 5)?;
+            let date_str = format!("{} {}", v[0], v[1]);
+
+            (
+                date(&date_str)?.1,
+                v[2][1..].parse()?,
+                hashmap_from_kv_vec(v[4..].to_vec()),
+            )
         };
 
         let bridge_stats_end = {
@@ -216,14 +257,22 @@ impl BridgeExtraInfo {
             (date(&date_str)?.1, v[2][1..].parse()?)
         };
 
-        let geoip = {
-            let v = take_uniq(&mut desc, "geoip-db-digest", 1)?;
-            v[0].to_owned()
+        let bridge_ips = {
+            let v = take_uniq(&mut desc, "bridge-ips", 1)?;
+            let data = v[0].split(',').collect::<Vec<_>>();
+            hashmap_from_kv_vec(data)
         };
 
-        let geoip6 = {
-            let v = take_uniq(&mut desc, "geoip6-db-digest", 1)?;
-            v[0].to_owned()
+        let bridge_ip_versions = {
+            let v = take_uniq(&mut desc, "bridge-ip-versions", 1)?;
+            let data = v[0].split(',').collect::<Vec<_>>();
+            hashmap_from_kv_vec(data)
+        };
+
+        let bridge_ip_transports = {
+            let v = take_uniq(&mut desc, "bridge-ip-transports", 1)?;
+            let data = v[0].split(',').collect::<Vec<_>>();
+            hashmap_from_kv_vec(data)
         };
 
         let router_sha256 = {
@@ -257,8 +306,16 @@ impl BridgeExtraInfo {
             dirreq_v3_direct_dl,
             dirreq_v3_tunneled_dl,
             hidserv_stats_end,
+            hidserv_rend_relayed_cells,
+            hidserv_dir_onions_seen,
             hidserv_v3_stats_end,
+            hidserv_rend_v3_relayed_cells,
+            hidserv_dir_v3_onions_seen,
+            padding_counts,
             bridge_stats_end,
+            bridge_ips,
+            bridge_ip_versions,
+            bridge_ip_transports,
             router_sha256,
             router,
         })
@@ -286,8 +343,16 @@ impl BridgeExtraInfo {
             dirreq_v3_direct_dl: HashMap::new(),
             dirreq_v3_tunneled_dl: HashMap::new(),
             hidserv_stats_end: (timestamp, 0),
+            hidserv_rend_relayed_cells: (String::new(), HashMap::new()),
+            hidserv_dir_onions_seen: (String::new(), HashMap::new()),
             hidserv_v3_stats_end: (timestamp, 0),
+            hidserv_rend_v3_relayed_cells: (String::new(), HashMap::new()),
+            hidserv_dir_v3_onions_seen: (String::new(), HashMap::new()),
+            padding_counts: (timestamp, 0, HashMap::new()),
             bridge_stats_end: (timestamp, 0),
+            bridge_ips: HashMap::new(),
+            bridge_ip_versions: HashMap::new(),
+            bridge_ip_transports: HashMap::new(),
             router_sha256: String::new(),
             router: String::new(),
         }
