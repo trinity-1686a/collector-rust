@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV6};
 
 use chrono::{DateTime, Utc};
@@ -15,16 +14,14 @@ pub enum Network {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
-pub struct BridgeServerDescriptor {
+pub struct ServerDescriptor {
     pub timestamp: DateTime<Utc>,
     pub name: String,
     pub ipv4: Ipv4Addr,
     pub or_port: u16,
-    pub master_key: String,
     pub ipv6: Option<Ipv6Addr>,
     pub or_port_v6: Option<u16>,
     pub platform: String,
-    pub proto: HashMap<String, String>,
     pub fingerprint: String,
     pub uptime: u64,
     pub bandwidth: (u64, u64, u64),
@@ -35,17 +32,15 @@ pub struct BridgeServerDescriptor {
     pub onion_key: String,
     pub accept_reject: Vec<Network>,
     pub tunnelled: bool,
-    pub router_sha256: String,
-    pub router: String,
 }
 
-impl BridgeServerDescriptor {
+impl ServerDescriptor {
     pub fn parse(input: &str, version: (u32, u32)) -> Result<Self, Error> {
         use crate::descriptor::nom_combinators::*;
 
-        if version.0 != 1 || version.1 > 2 {
+        if version.0 != 1 || version.1 != 0 {
             return Err(ErrorKind::UnsupportedDesc(format!(
-                "bridge-server-descriptor v{}.{} is not supported",
+                "server-descriptor v{}.{} is not supported",
                 version.0, version.1
             ))
             .into());
@@ -57,11 +52,6 @@ impl BridgeServerDescriptor {
             let v = take_uniq(&mut desc, "router", 5)?;
 
             (v[0].to_owned(), v[1].parse()?, v[2].parse()?)
-        };
-
-        let master_key = {
-            let v = take_uniq(&mut desc, "master-key-ed25519", 1)?;
-            v[0].to_owned()
         };
 
         let (ipv6, or_port_v6) = {
@@ -77,20 +67,6 @@ impl BridgeServerDescriptor {
         let platform = {
             let v = take_uniq(&mut desc, "platform", 1)?;
             v.join(" ")
-        };
-
-        let proto = {
-            let v = take_uniq(&mut desc, "proto", 12)?;
-            let it = v.iter();
-            let res: HashMap<String, String> = it.fold(HashMap::new(), |mut res, val| {
-                if let Some(t) = val.split_once('=') {
-                    res.entry(t.0.to_owned()).or_insert_with(|| t.1.to_owned());
-                    res
-                } else {
-                    res
-                }
-            });
-            res
         };
 
         let timestamp = {
@@ -150,26 +126,14 @@ impl BridgeServerDescriptor {
 
         let tunnelled = take_opt(&mut desc, "tunnelled-dir-server", 0)?.is_some();
 
-        let router_sha256 = {
-            let v = take_uniq(&mut desc, "router-digest-sha256", 1)?;
-            v[0].to_owned()
-        };
-
-        let router = {
-            let v = take_uniq(&mut desc, "router-digest", 1)?;
-            v[0].to_owned()
-        };
-
-        Ok(BridgeServerDescriptor {
+        Ok(ServerDescriptor {
             timestamp,
             name,
             ipv4,
             or_port,
-            master_key,
             ipv6,
             or_port_v6,
             platform,
-            proto,
             fingerprint,
             uptime,
             bandwidth,
@@ -180,23 +144,19 @@ impl BridgeServerDescriptor {
             onion_key,
             accept_reject,
             tunnelled,
-            router_sha256,
-            router,
         })
     }
 
-    /// Create a dummy descriptor to allow range over BTree of BridgeServerDescriptor
+    /// Create a dummy descriptor to allow range over BTree of ServerDescriptor
     pub fn empty(timestamp: DateTime<Utc>) -> Self {
-        BridgeServerDescriptor {
+        ServerDescriptor {
             timestamp,
             name: String::new(),
             ipv4: Ipv4Addr::BROADCAST,
             or_port: 0,
-            master_key: String::new(),
             ipv6: None,
             or_port_v6: None,
             platform: String::new(),
-            proto: HashMap::new(),
             fingerprint: String::new(),
             uptime: 0,
             bandwidth: (0, 0, 0),
@@ -207,13 +167,11 @@ impl BridgeServerDescriptor {
             onion_key: String::new(),
             accept_reject: Vec::new(),
             tunnelled: false,
-            router_sha256: String::new(),
-            router: String::new(),
         }
     }
 }
 
-impl Ord for BridgeServerDescriptor {
+impl Ord for ServerDescriptor {
     fn cmp(&self, other: &Self) -> Ordering {
         self.timestamp
             .cmp(&other.timestamp)
@@ -221,7 +179,7 @@ impl Ord for BridgeServerDescriptor {
     }
 }
 
-impl PartialOrd for BridgeServerDescriptor {
+impl PartialOrd for ServerDescriptor {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }

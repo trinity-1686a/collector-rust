@@ -1,4 +1,4 @@
-use std::{io, num, net};
+use std::{io, net, num};
 
 use thiserror::Error;
 
@@ -55,5 +55,3 @@ where T: nom::error::ParseError<&'a str> {
 */
 
 impl std::error::Error for ErrorKind {}
-
-
