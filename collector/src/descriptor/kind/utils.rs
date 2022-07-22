@@ -73,3 +73,15 @@ pub(crate) fn take_opt<'a>(
         Ok(None)
     }
 }
+
+pub(crate) fn hashmap_from_kv_vec(data: Vec<&str>) -> HashMap<String, String> {
+    let res: HashMap<String, String> = data.iter().fold(HashMap::new(), |mut res, val| {
+        if let Some(t) = val.split_once('=') {
+            res.entry(t.0.to_owned()).or_insert_with(|| t.1.to_owned());
+            res
+        } else {
+            res
+        }
+    });
+    res
+}

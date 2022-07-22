@@ -1,11 +1,9 @@
-use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 use std::num::ParseIntError;
 
 use chrono::{DateTime, Utc};
 
 use super::utils::*;
-use super::DescriptorLine;
 use crate::error::{Error, ErrorKind};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -73,20 +71,20 @@ pub struct BridgeExtraInfo {
     pub dirreq_read_history: History,
     pub geoip: String,
     pub geoip6: String,
-    // dirreq-stats-end
-    // dirreq-v3-ips
-    // dirreq-v3-reqs
-    // dirreq-v3-resp
-    // dirreq-v3-direct-dl
-    // dirreq-v3-tunneled-dl
-    // hidserv-stats-end
+    pub dirreq_stats_end: (DateTime<Utc>, u64),
+    pub dirreq_v3_ips: HashMap<String,String>,
+    pub dirreq_v3_reqs: HashMap<String,String>,
+    pub dirreq_v3_resp: HashMap<String,String>,
+    pub dirreq_v3_direct_dl: HashMap<String,String>,
+    pub dirreq_v3_tunneled_dl: HashMap<String,String>,
+    pub hidserv_stats_end: (DateTime<Utc>, u64),
     // hidserv-rend-relayed-cells
     // hidserv-dir-onions-seen
-    // hidserv-v3-stats-end
+    pub hidserv_v3_stats_end: (DateTime<Utc>, u64),
     // hidserv-rend-v3-relayed-cells
     // hidserv-dir-v3-onions-seen
     // padding-counts
-    // bridge-stats-end
+    pub bridge_stats_end: (DateTime<Utc>, u64),
     // bridge-ips
     // bridge-ip-versions
     // bridge-ip-transports
@@ -106,14 +104,7 @@ impl BridgeExtraInfo {
             .into());
         }
 
-        let mut it = iterator(input, DescriptorLine::parse);
-        let mut desc: HashMap<&str, Vec<DescriptorLine>> =
-            it.fold(HashMap::new(), |mut desc, line| {
-                desc.entry(line.name).or_default().push(line);
-                desc
-            });
-        let (i, _) = it.finish()?;
-        t(eof(i))?;
+        let mut desc = descriptor_lines(input)?;
 
         let timestamp = {
             let v = take_uniq(&mut desc, "published", 2)?;
@@ -167,6 +158,64 @@ impl BridgeExtraInfo {
             History::from_parsed_vec(&v)?
         };
 
+        let dirreq_stats_end = {
+            let v = take_uniq(&mut desc, "dirreq-stats-end", 3)?;
+            let date_str = format!("{} {}", v[0], v[1]);
+
+            (date(&date_str)?.1, v[2][1..].parse()?)
+        };
+
+        let dirreq_v3_ips = {
+            let v = take_uniq(&mut desc, "dirreq-v3-ips", 1)?;
+            let data = v[0].split(',').collect::<Vec<_>>();
+            hashmap_from_kv_vec(data)
+        };
+
+        let dirreq_v3_reqs = {
+            let v = take_uniq(&mut desc, "dirreq-v3-reqs", 1)?;
+            let data = v[0].split(',').collect::<Vec<_>>();
+            hashmap_from_kv_vec(data)
+        };
+
+        let dirreq_v3_resp = {
+            let v = take_uniq(&mut desc, "dirreq-v3-resp", 1)?;
+            let data = v[0].split(',').collect::<Vec<_>>();
+            hashmap_from_kv_vec(data)
+        };
+
+        let dirreq_v3_direct_dl = {
+            let v = take_uniq(&mut desc, "dirreq-v3-direct-dl", 1)?;
+            let data = v[0].split(',').collect::<Vec<_>>();
+            hashmap_from_kv_vec(data)
+        };
+
+        let dirreq_v3_tunneled_dl = {
+            let v = take_uniq(&mut desc, "dirreq-v3-tunneled-dl", 1)?;
+            let data = v[0].split(',').collect::<Vec<_>>();
+            hashmap_from_kv_vec(data)
+        };
+
+        let hidserv_stats_end = {
+            let v = take_uniq(&mut desc, "hidserv-stats-end", 3)?;
+            let date_str = format!("{} {}", v[0], v[1]);
+
+            (date(&date_str)?.1, v[2][1..].parse()?)
+        };
+
+        let hidserv_v3_stats_end = {
+            let v = take_uniq(&mut desc, "hidserv-v3-stats-end", 3)?;
+            let date_str = format!("{} {}", v[0], v[1]);
+
+            (date(&date_str)?.1, v[2][1..].parse()?)
+        };
+
+        let bridge_stats_end = {
+            let v = take_uniq(&mut desc, "bridge-stats-end", 3)?;
+            let date_str = format!("{} {}", v[0], v[1]);
+
+            (date(&date_str)?.1, v[2][1..].parse()?)
+        };
+
         let geoip = {
             let v = take_uniq(&mut desc, "geoip-db-digest", 1)?;
             v[0].to_owned()
@@ -201,6 +250,15 @@ impl BridgeExtraInfo {
             dirreq_read_history,
             geoip,
             geoip6,
+            dirreq_stats_end,
+            dirreq_v3_ips,
+            dirreq_v3_reqs,
+            dirreq_v3_resp,
+            dirreq_v3_direct_dl,
+            dirreq_v3_tunneled_dl,
+            hidserv_stats_end,
+            hidserv_v3_stats_end,
+            bridge_stats_end,
             router_sha256,
             router,
         })
@@ -221,6 +279,15 @@ impl BridgeExtraInfo {
             dirreq_read_history: History::empty(timestamp),
             geoip: String::new(),
             geoip6: String::new(),
+            dirreq_stats_end: (timestamp, 0),
+            dirreq_v3_ips: HashMap::new(),
+            dirreq_v3_reqs: HashMap::new(),
+            dirreq_v3_resp: HashMap::new(),
+            dirreq_v3_direct_dl: HashMap::new(),
+            dirreq_v3_tunneled_dl: HashMap::new(),
+            hidserv_stats_end: (timestamp, 0),
+            hidserv_v3_stats_end: (timestamp, 0),
+            bridge_stats_end: (timestamp, 0),
             router_sha256: String::new(),
             router: String::new(),
         }

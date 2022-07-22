@@ -81,16 +81,7 @@ impl BridgeServerDescriptor {
 
         let proto = {
             let v = take_uniq(&mut desc, "proto", 12)?;
-            let it = v.iter();
-            let res: HashMap<String, String> = it.fold(HashMap::new(), |mut res, val| {
-                if let Some(t) = val.split_once('=') {
-                    res.entry(t.0.to_owned()).or_insert_with(|| t.1.to_owned());
-                    res
-                } else {
-                    res
-                }
-            });
-            res
+            hashmap_from_kv_vec(v)
         };
 
         let timestamp = {

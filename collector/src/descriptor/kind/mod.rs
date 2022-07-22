@@ -212,9 +212,9 @@ impl Descriptor {
         let (buff, vt) = VersionnedType::parse(raw_descriptor)?;
 
         match vt.ttype {
-            Type::BridgeExtraInfo => Ok(Descriptor::BridgeExtraInfo(
-                BridgeExtraInfo::parse(buff, vt.version)?,
-            )),
+            Type::BridgeExtraInfo => Ok(Descriptor::BridgeExtraInfo(BridgeExtraInfo::parse(
+                buff, vt.version,
+            )?)),
             Type::BridgePoolAssignment => Ok(Descriptor::BridgePoolAssignment(
                 BridgePoolAssignment::parse(buff, vt.version)?,
             )),
