@@ -3,4 +3,5 @@
 members = [
     "collector",
     "experiments/2022-05-rdsys-bridge-stability",
+    "experiments/2022-07-fallback-health",
 ]

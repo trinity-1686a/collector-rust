@@ -8,7 +8,6 @@ pub(crate) mod nom_combinators {
 
     use chrono::{DateTime, TimeZone, Utc};
 
-    pub use nom::Parser;
     pub use nom::bytes::complete::{tag, take, take_till, take_until};
     pub use nom::character::complete::{
         anychar, char, hex_digit1, line_ending, space0, space1, u32,
@@ -16,6 +15,7 @@ pub(crate) mod nom_combinators {
     pub use nom::combinator::{eof, iterator, map, map_parser, map_res, opt, peek};
     pub use nom::multi::fold_many_m_n;
     pub use nom::sequence::tuple;
+    pub use nom::Parser;
 
     /// Force type to help rustc find what we want
     pub fn t<T>(r: Result<T, nom::Err<()>>) -> Result<T, nom::Err<()>> {
@@ -87,9 +87,7 @@ pub(crate) mod nom_combinators {
 
     /// Parse what looks like a PEM content. Accept a broad range of inputs that are
     /// technically not valid, like PEM with a non base64 content or an illegal label.
-    pub fn cert(
-        input: &str,
-    ) -> nom::IResult<&str, &str, nom::error::Error<&str>> {
+    pub fn cert(input: &str) -> nom::IResult<&str, &str, nom::error::Error<&str>> {
         let start_len = input.len();
 
         let (i, _) = tag("-----BEGIN ")(input)?;

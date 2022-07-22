@@ -1,8 +1,11 @@
 mod bridge_pool_assignment;
 mod bridge_server_descriptor;
+mod server_descriptor;
+pub(crate) mod utils;
 
 pub use bridge_pool_assignment::BridgePoolAssignment;
 pub use bridge_server_descriptor::BridgeServerDescriptor;
+pub use server_descriptor::ServerDescriptor;
 
 use std::fmt;
 use std::str::FromStr;
@@ -213,6 +216,9 @@ impl Descriptor {
             Type::BridgeServerDescriptor => Ok(Descriptor::BridgeServerDescriptor(
                 BridgeServerDescriptor::parse(buff, vt.version)?,
             )),
+            Type::ServerDescriptor => Ok(Descriptor::ServerDescriptor(ServerDescriptor::parse(
+                buff, vt.version,
+            )?)),
             t => Err(ErrorKind::UnsupportedDesc(format!(
                 "unsupported descriptor {}, not implemented",
                 t
@@ -226,6 +232,7 @@ impl Descriptor {
 pub enum Descriptor {
     BridgePoolAssignment(BridgePoolAssignment),
     BridgeServerDescriptor(BridgeServerDescriptor),
+    ServerDescriptor(ServerDescriptor),
     /*
         BandwidthFile,
         BridgeExtraInfo,
@@ -239,7 +246,6 @@ pub enum Descriptor {
         NetworkStatusConsensus3,
         NetworkStatusMicrodescConsensus3,
         NetworkStatusVote3,
-        ServerDescriptor,
         SnowflakeStats,
         Tordnsel,
         Torperf,
@@ -260,10 +266,17 @@ impl Descriptor {
             _ => Err(self),
         }
     }
+
+    pub fn server_descriptor(self) -> Result<ServerDescriptor, Self> {
+        match self {
+            Descriptor::ServerDescriptor(d) => Ok(d),
+            _ => Err(self),
+        }
+    }
 }
 
 #[derive(Debug)]
-struct DescriptorLine<'a> {
+pub(crate) struct DescriptorLine<'a> {
     pub name: &'a str,
     pub values: Vec<&'a str>,
     pub cert: Option<&'a str>,
@@ -276,11 +289,7 @@ impl<'a> DescriptorLine<'a> {
         let (i, _) = line_ending(i)?;
         let (i, cert) = opt(cert)(i)?;
 
-        Ok((i, DescriptorLine {
-            name,
-            values,
-            cert,
-        }))
+        Ok((i, DescriptorLine { name, values, cert }))
     }
 }
 
@@ -292,7 +301,7 @@ mod tests {
 
     use super::*;
 
-    async fn read_test_file(filename: &str) -> Vec<Result<Descriptor,Error>> {
+    async fn read_test_file(filename: &str) -> Vec<Result<Descriptor, Error>> {
         let desc = FileReader::read_file(filename)
             .and_then(|s| async move { Descriptor::decode(&s) })
             .collect::<Vec<_>>()
@@ -308,7 +317,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_bridge_server_descriptors () {
+    async fn test_bridge_server_descriptors() {
         let res = read_test_file("tests/bridge_server_descriptor_ex").await;
         res.iter().for_each(|d| {
             assert!(d.is_ok());
