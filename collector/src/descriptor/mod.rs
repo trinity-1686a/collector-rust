@@ -64,6 +64,8 @@ pub(crate) mod nom_combinators {
         }
 
         let (i, _) = it.finish()?;
+        // trim possible whitespace
+        let (i, _) = opt(char(' '))(i)?;
         Ok((i, kv))
     }
 

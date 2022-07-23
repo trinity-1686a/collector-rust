@@ -21,11 +21,11 @@ impl History {
         }
     }
 
-    pub fn from_parsed_vec(data: &Vec<&str>) -> Result<History, Error> {
+    pub fn from_parsed_vec(data: Vec<&str>) -> Result<History, Error> {
         use crate::descriptor::nom_combinators::date;
 
         if data.len() != 5 {
-            return Err(ErrorKind::MalformedDesc.into());
+            return Err(ErrorKind::MalformedDesc("Line does not have 5 entries".to_owned()).into());
         }
 
         let timestamp = {
@@ -40,14 +40,10 @@ impl History {
             .map(|x| x.parse())
             .collect::<Result<Vec<u64>, _>>();
 
-        if d.is_err() {
-            return Err(ErrorKind::MalformedDesc.into());
-        }
-
         Ok(History {
             timestamp,
             duration,
-            data: d.unwrap(),
+            data: d?,
         })
     }
 }
@@ -57,7 +53,7 @@ pub struct BridgeExtraInfo {
     pub timestamp: DateTime<Utc>,
     pub name: String,
     pub fingerprint: String,
-    pub master_key: String,
+    pub master_key: Option<String>,
     pub transport: String,
     pub write_history: History,
     pub read_history: History,
@@ -102,211 +98,135 @@ impl BridgeExtraInfo {
 
         let mut desc = descriptor_lines(input)?;
 
-        let timestamp = {
-            let v = take_uniq(&mut desc, "published", 2)?;
+        Ok(
+            extract_desc! {
+                desc => BridgeExtraInfo rest {
+                    uniq("extra-info") [name, fingerprint] => {
+                        name: name.to_owned(),
+                        fingerprint: fingerprint.to_owned(),
+                    },
+                    opt("master-key-ed25519") [key] => {
+                        master_key: key.map(|k| k.to_owned()),
+                    },
+                    uniq("published") [day, hour] => {
+                        timestamp: date(&format!("{} {}", day, hour))?.1,
+                    },
+                    uniq("transport") [t] => {
+                        transport: t.to_owned(),
+                    },
+                    uniq("write-history") [] => {
+                        write_history: History::from_parsed_vec(rest.to_vec())?,
+                    },
+                    uniq("read-history") [] => {
+                        read_history: History::from_parsed_vec(rest.to_vec())?,
+                    },
+                    uniq("ipv6-write-history") [] => {
+                        write_history_v6: History::from_parsed_vec(rest.to_vec())?,
+                    },
+                    uniq("ipv6-read-history") [] => {
+                        read_history_v6: History::from_parsed_vec(rest.to_vec())?,
+                    },
+                    uniq("dirreq-write-history") [] => {
+                        dirreq_write_history: History::from_parsed_vec(rest.to_vec())?,
+                    },
+                    uniq("dirreq-read-history") [] => {
+                        dirreq_read_history: History::from_parsed_vec(rest.to_vec())?,
+                    },
+                    uniq("geoip-db-digest") [digest] => {
+                        geoip: digest.to_owned(),
+                    },
+                    uniq("geoip6-db-digest") [digest] => {
+                        geoip6: digest.to_owned(),
+                    },
+                    uniq("dirreq-stats-end") [day, hour, duration] => {
+                        dirreq_stats_end: (
+                            date(&format!("{} {}", day, hour))?.1,
+                            duration[1..].parse()?,
+                        ),
+                    },
+                    uniq("dirreq-v3-ips") [kv] => {
+                        dirreq_v3_ips: create_kv_u64(kv.split(',').collect())?,
+                    },
+                    uniq("dirreq-v3-reqs") [kv] => {
+                        dirreq_v3_reqs: create_kv_u64(kv.split(',').collect())?,
+                    },
+                    uniq("dirreq-v3-resp") [kv] => {
+                        dirreq_v3_resp: create_kv_u64(kv.split(',').collect())?,
+                    },
+                    uniq("dirreq-v3-direct-dl") [kv] => {
+                        dirreq_v3_direct_dl: create_kv_u64(kv.split(',').collect())?,
+                    },
+                    uniq("dirreq-v3-tunneled-dl") [kv] => {
+                        dirreq_v3_tunneled_dl: create_kv_u64(kv.split(',').collect())?,
+                    },
+                    uniq("hidserv-stats-end") [day, hour, duration] => {
+                        hidserv_stats_end: (
+                            date(&format!("{} {}", day, hour))?.1,
+                            duration[1..].parse()?,
+                        ),
+                    },
+                    uniq("hidserv-rend-relayed-cells") [val] => {
+                        hidserv_rend_relayed_cells : (
+                            val.to_owned(),
+                            hashmap_from_kv_vec(rest.to_vec()),
+                        ),
+                    },
+                    uniq("hidserv-dir-onions-seen") [val] => {
+                        hidserv_dir_onions_seen : (
+                            val.to_owned(),
+                            hashmap_from_kv_vec(rest.to_vec()),
+                        ),
+                    },
+                    uniq("hidserv-v3-stats-end") [day, hour, duration] => {
+                        hidserv_v3_stats_end: (
+                            date(&format!("{} {}", day, hour))?.1,
+                            duration[1..].parse()?,
+                        ),
+                    },
+                    uniq("hidserv-rend-v3-relayed-cells") [val] => {
+                        hidserv_rend_v3_relayed_cells : (
+                            val.to_owned(),
+                            hashmap_from_kv_vec(rest.to_vec()),
+                        ),
+                    },
+                    uniq("hidserv-dir-v3-onions-seen") [val] => {
+                        hidserv_dir_v3_onions_seen : (
+                            val.to_owned(),
+                            hashmap_from_kv_vec(rest.to_vec()),
+                        ),
+                    },
+                    uniq("padding-counts") [day, hour, duration, _unused] => {
+                        padding_counts: (
+                            date(&format!("{} {}", day, hour))?.1,
+                            duration[1..].parse()?,
+                            create_kv_u64(rest.to_vec())?,
+                        ),
+                    },
+                    uniq("bridge-stats-end") [day, hour, duration] => {
+                        bridge_stats_end: (
+                            date(&format!("{} {}", day, hour))?.1,
+                            duration[1..].parse()?,
+                        ),
+                    },
+                    uniq("bridge-ips") [kv] => {
+                        bridge_ips: create_kv_u64(kv.split(',').collect())?,
+                    },
+                    uniq("bridge-ip-versions") [kv] => {
+                        bridge_ip_versions: create_kv_u64(kv.split(',').collect())?,
+                    },
+                    uniq("bridge-ip-transports") [kv] => {
+                        bridge_ip_transports: create_kv_u64(kv.split(',').collect())?,
+                    },
+                    uniq("router-digest-sha256") [digest] => {
+                        router_sha256: digest.to_owned(),
+                    },
+                    uniq("router-digest") [digest] => {
+                        router: digest.to_owned(),
+                    },
 
-            let date_str = format!("{} {}", v[0], v[1]);
-            date(&date_str)?.1
-        };
-
-        let (name, fingerprint) = {
-            let v = take_uniq(&mut desc, "extra-info", 2)?;
-            (v[0].to_owned(), v[1].to_owned())
-        };
-
-        let master_key = {
-            let v = take_uniq(&mut desc, "master-key-ed25519", 1)?;
-            v[0].to_owned()
-        };
-
-        let transport = {
-            let v = take_uniq(&mut desc, "transport", 1)?;
-            v[0].to_owned()
-        };
-
-        let write_history = {
-            let v = take_uniq(&mut desc, "write-history", 5)?;
-            History::from_parsed_vec(&v)?
-        };
-
-        let read_history = {
-            let v = take_uniq(&mut desc, "read-history", 5)?;
-            History::from_parsed_vec(&v)?
-        };
-
-        let write_history_v6 = {
-            let v = take_uniq(&mut desc, "ipv6-write-history", 5)?;
-            History::from_parsed_vec(&v)?
-        };
-
-        let read_history_v6 = {
-            let v = take_uniq(&mut desc, "ipv6-read-history", 5)?;
-            History::from_parsed_vec(&v)?
-        };
-
-        let dirreq_write_history = {
-            let v = take_uniq(&mut desc, "dirreq-write-history", 5)?;
-            History::from_parsed_vec(&v)?
-        };
-
-        let dirreq_read_history = {
-            let v = take_uniq(&mut desc, "dirreq-read-history", 5)?;
-            History::from_parsed_vec(&v)?
-        };
-
-        let geoip = {
-            let v = take_uniq(&mut desc, "geoip-db-digest", 1)?;
-            v[0].to_owned()
-        };
-
-        let geoip6 = {
-            let v = take_uniq(&mut desc, "geoip6-db-digest", 1)?;
-            v[0].to_owned()
-        };
-
-        let dirreq_stats_end = {
-            let v = take_uniq(&mut desc, "dirreq-stats-end", 3)?;
-            let date_str = format!("{} {}", v[0], v[1]);
-
-            (date(&date_str)?.1, v[2][1..].parse()?)
-        };
-
-        let dirreq_v3_ips = {
-            let v = take_uniq(&mut desc, "dirreq-v3-ips", 1)?;
-            create_kv_u64(v[0].split(',').collect())?
-        };
-
-        let dirreq_v3_reqs = {
-            let v = take_uniq(&mut desc, "dirreq-v3-reqs", 1)?;
-            create_kv_u64(v[0].split(',').collect())?
-        };
-
-        let dirreq_v3_resp = {
-            let v = take_uniq(&mut desc, "dirreq-v3-resp", 1)?;
-            create_kv_u64(v[0].split(',').collect())?
-        };
-
-        let dirreq_v3_direct_dl = {
-            let v = take_uniq(&mut desc, "dirreq-v3-direct-dl", 1)?;
-            create_kv_u64(v[0].split(',').collect())?
-        };
-
-        let dirreq_v3_tunneled_dl = {
-            let v = take_uniq(&mut desc, "dirreq-v3-tunneled-dl", 1)?;
-            create_kv_u64(v[0].split(',').collect())?
-        };
-
-        let hidserv_stats_end = {
-            let v = take_uniq(&mut desc, "hidserv-stats-end", 3)?;
-            let date_str = format!("{} {}", v[0], v[1]);
-
-            (date(&date_str)?.1, v[2][1..].parse()?)
-        };
-
-        let hidserv_rend_relayed_cells = {
-            let v = take_uniq(&mut desc, "hidserv-rend-relayed-cells", 2)?;
-            (v[0].to_owned(), hashmap_from_kv_vec(v[1..].to_vec()))
-        };
-
-        let hidserv_dir_onions_seen = {
-            let v = take_uniq(&mut desc, "hidserv-dir-onions-seen", 2)?;
-            (v[0].to_owned(), hashmap_from_kv_vec(v[1..].to_vec()))
-        };
-
-        let hidserv_v3_stats_end = {
-            let v = take_uniq(&mut desc, "hidserv-v3-stats-end", 3)?;
-            let date_str = format!("{} {}", v[0], v[1]);
-
-            (date(&date_str)?.1, v[2][1..].parse()?)
-        };
-
-        let hidserv_rend_v3_relayed_cells = {
-            let v = take_uniq(&mut desc, "hidserv-rend-v3-relayed-cells", 2)?;
-            (v[0].to_owned(), hashmap_from_kv_vec(v[1..].to_vec()))
-        };
-
-        let hidserv_dir_v3_onions_seen = {
-            let v = take_uniq(&mut desc, "hidserv-dir-v3-onions-seen", 2)?;
-            (v[0].to_owned(), hashmap_from_kv_vec(v[1..].to_vec()))
-        };
-
-        let padding_counts = {
-            let v = take_uniq(&mut desc, "padding-counts", 5)?;
-            let date_str = format!("{} {}", v[0], v[1]);
-
-            (
-                date(&date_str)?.1,
-                v[2][1..].parse()?,
-                create_kv_u64(v[4..].to_vec())?,
-            )
-        };
-
-        let bridge_stats_end = {
-            let v = take_uniq(&mut desc, "bridge-stats-end", 3)?;
-            let date_str = format!("{} {}", v[0], v[1]);
-
-            (date(&date_str)?.1, v[2][1..].parse()?)
-        };
-
-        let bridge_ips = {
-            let v = take_uniq(&mut desc, "bridge-ips", 1)?;
-            create_kv_u64(v[0].split(',').collect())?
-        };
-
-        let bridge_ip_versions = {
-            let v = take_uniq(&mut desc, "bridge-ip-versions", 1)?;
-            create_kv_u64(v[0].split(',').collect())?
-        };
-
-        let bridge_ip_transports = {
-            let v = take_uniq(&mut desc, "bridge-ip-transports", 1)?;
-            create_kv_u64(v[0].split(',').collect())?
-        };
-
-        let router_sha256 = {
-            let v = take_uniq(&mut desc, "router-digest-sha256", 1)?;
-            v[0].to_owned()
-        };
-
-        let router = {
-            let v = take_uniq(&mut desc, "router-digest", 1)?;
-            v[0].to_owned()
-        };
-
-        Ok(BridgeExtraInfo {
-            timestamp,
-            name,
-            fingerprint,
-            master_key,
-            transport,
-            write_history,
-            read_history,
-            write_history_v6,
-            read_history_v6,
-            dirreq_write_history,
-            dirreq_read_history,
-            geoip,
-            geoip6,
-            dirreq_stats_end,
-            dirreq_v3_ips,
-            dirreq_v3_reqs,
-            dirreq_v3_resp,
-            dirreq_v3_direct_dl,
-            dirreq_v3_tunneled_dl,
-            hidserv_stats_end,
-            hidserv_rend_relayed_cells,
-            hidserv_dir_onions_seen,
-            hidserv_v3_stats_end,
-            hidserv_rend_v3_relayed_cells,
-            hidserv_dir_v3_onions_seen,
-            padding_counts,
-            bridge_stats_end,
-            bridge_ips,
-            bridge_ip_versions,
-            bridge_ip_transports,
-            router_sha256,
-            router,
-        })
+                }
+            }
+        )
     }
 
     pub fn empty(timestamp: DateTime<Utc>) -> Self {
@@ -314,7 +234,7 @@ impl BridgeExtraInfo {
             timestamp,
             name: String::new(),
             fingerprint: String::new(),
-            master_key: String::new(),
+            master_key: None,
             transport: String::new(),
             write_history: History::empty(timestamp),
             read_history: History::empty(timestamp),
@@ -352,7 +272,7 @@ fn create_kv_u64(v: Vec<&str>) -> Result<HashMap<String, u64>, Error> {
         .map(|val| -> Result<(String, u64), Error> {
             let (a, b) = val
                 .split_once('=')
-                .ok_or(ErrorKind::MalformedDesc)?;
+                .ok_or(ErrorKind::MalformedDesc("Key value malformed".to_owned()))?;
             Ok((a.to_owned(), b.parse()?))
         })
         .collect()

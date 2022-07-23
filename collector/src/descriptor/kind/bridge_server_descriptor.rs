@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV6};
+use std::net::{Ipv4Addr, IpAddr, SocketAddr};
 
 use chrono::{DateTime, Utc};
 
@@ -20,23 +20,30 @@ pub struct BridgeServerDescriptor {
     pub name: String,
     pub ipv4: Ipv4Addr,
     pub or_port: u16,
-    pub master_key: String,
-    pub ipv6: Option<Ipv6Addr>,
-    pub or_port_v6: Option<u16>,
+    pub master_key: Option<String>,
+    pub additional_address: Option<IpAddr>,
+    pub additional_port: Option<u16>,
     pub platform: String,
     pub proto: HashMap<String, String>,
     pub fingerprint: String,
-    pub uptime: u64,
+    pub uptime: Option<u64>,
     pub bandwidth: (u64, u64, u64),
-    pub extra_info: String,
+    pub extra_info: Option<String>,
     pub hidden_service: bool,
     pub contact: Option<String>,
     pub distribution_request: String,
-    pub onion_key: String,
+    pub onion_key: Option<String>,
     pub accept_reject: Vec<Network>,
     pub tunnelled: bool,
-    pub router_sha256: String,
+    pub router_sha256: Option<String>,
     pub router: String,
+    pub protocols: Vec<String>,
+    pub hibernating: bool,
+    pub cache_extra_info: bool,
+    pub family: Vec<String>,
+    pub allow_single_hop_exits: bool,
+    pub overload: Option<(u32, DateTime<Utc>)>,
+    pub ipv6_policy: Network,
 }
 
 impl BridgeServerDescriptor {
@@ -53,126 +60,132 @@ impl BridgeServerDescriptor {
 
         let mut desc = descriptor_lines(input)?;
 
-        let (name, ipv4, or_port) = {
-            let v = take_uniq(&mut desc, "router", 5)?;
-
-            (v[0].to_owned(), v[1].parse()?, v[2].parse()?)
-        };
-
-        let master_key = {
-            let v = take_uniq(&mut desc, "master-key-ed25519", 1)?;
-            v[0].to_owned()
-        };
-
-        let (ipv6, or_port_v6) = {
-            let v = take_opt(&mut desc, "or-address", 1)?;
-            if let Some(t) = v.map(|x| x[0]) {
-                let u = t.parse::<SocketAddrV6>()?;
-                (Some(u.ip().to_owned()), Some(u.port()))
-            } else {
-                (None, None)
+        Ok(extract_desc! {
+            desc => BridgeServerDescriptor rest {
+                uniq("router") [name, ip, port, _socks_port, _dir_port] => {
+                    name: name.to_owned(),
+                    ipv4: ip.parse().unwrap(),
+                    or_port: port.parse().unwrap(),
+                },
+                opt("master-key-ed25519") [key] => {
+                    master_key: key.map(|k| k.to_owned()),
+                },
+                uniq("published") [day, hour] => {
+                    timestamp: date(&format!("{} {}", day, hour))?.1,
+                },
+                opt("or-address") [address] => {
+                    additional_address: address.map(str::parse::<SocketAddr>).transpose()?
+                        .as_ref().map(SocketAddr::ip),
+                    additional_port: address.map(str::parse::<SocketAddr>).transpose()?
+                        .as_ref().map(SocketAddr::port),
+                },
+                uniq("platform") [] => {
+                    platform: rest.join(" "),
+                },
+                uniq("fingerprint") [] => {
+                    fingerprint: rest.join(" "),
+                },
+                opt("uptime") [uptime] => {
+                    uptime: uptime.map(|u| u.parse()).transpose()?,
+                },
+                uniq("bandwidth") [a, b, c] => {
+                    bandwidth: (a.parse()?, b.parse()?, c.parse()?),
+                },
+                opt("extra-info-digest") [] => {
+                    extra_info: rest.map(|d| d.join(" ")),
+                },
+                opt("hidden-service-dir") [] => {
+                    hidden_service: rest.is_some(),
+                },
+                opt("contact") [] => {
+                    contact: rest.map(|r| r.join(" ")),
+                },
+                opt("bridge-distribution-request") [req] => {
+                    distribution_request: req.unwrap_or("any").to_owned(),
+                },
+                opt("ntor-onion-key") [key] => {
+                    onion_key: key.map(|k| k.to_owned()),
+                },
+                opt("proto") [] => {
+                    // TODO should reject when split_once fail
+                    proto: rest.map(|r|
+                                    r.iter()
+                                    .filter_map(|v| v.split_once('='))
+                                    .map(|(k,v)| (k.to_owned(), v.to_owned()))
+                                    .collect()
+                                ).unwrap_or_default(),
+                },
+                opt("tunnelled-dir-server") [] => {
+                    tunnelled: rest.is_some(),
+                },
+                multi("accept", "reject") [] => {
+                    accept_reject: {
+                        rest.iter().map(|e| match e.name {
+                            "accept" => Ok(Network::Accept(e.values
+                                               .get(0)
+                                               .ok_or_else(||
+                                                    ErrorKind::MalformedDesc(
+                                                        "missing parameters to accept".to_owned()
+                                                        ))?
+                                               .to_string())),
+                            "reject" => Ok(Network::Reject(e.values
+                                               .get(0)
+                                               .ok_or_else(||
+                                                    ErrorKind::MalformedDesc(
+                                                        "missing parameters to reject".to_owned()
+                                                        ))?
+                                               .to_string())),
+                            _ => unreachable!(),
+                        })
+                        .collect::<Result<Vec<_>, Error>>()?
+                    },
+                },
+                opt("router-digest-sha256") [sha] => {
+                    router_sha256: sha.map(|s| s.to_owned()),
+                },
+                uniq("router-digest") [sha] => {
+                    router: sha.to_owned(),
+                },
+                opt("protocols") [] => {
+                    protocols: rest.unwrap_or_default()
+                        .into_iter()
+                        .map(|i| (*i).to_owned())
+                        .collect(),
+                },
+                opt("hibernating") [val] => {
+                    hibernating: val == Some("1"),
+                },
+                opt("caches-extra-info") [] => {
+                    cache_extra_info: rest.is_some(),
+                },
+                opt("family") [] => {
+                    family: rest.unwrap_or_default()
+                        .into_iter()
+                        .map(|i| (*i).to_owned())
+                        .collect(),
+                },
+                opt("allow-single-hop-exits") [] => {
+                    allow_single_hop_exits: rest.is_some(),
+                },
+                opt("overload-general") [version, day, hour] => {
+                    overload: if let Some(version) = version {
+                        let date = date(&format!("{} {}", day.unwrap(), hour.unwrap()))?.1;
+                        Some((version.parse()?, date))
+                    } else {
+                        None
+                    },
+                },
+                opt("ipv6-policy") [kw, policy] => {
+                    ipv6_policy: match (kw, policy) {
+                            (Some("accept"), Some(policy)) => Network::Accept(policy.to_string()),
+                            (Some("reject"), Some(policy)) => Network::Reject(policy.to_string()),
+                            (Some(_), _) => return Err(ErrorKind::MalformedDesc(
+                                                    "invalid ipv6 policy".to_owned()
+                                                    ).into()),
+                            (None, _) => Network::Reject("1-65535".to_owned()),
+                    },
+                },
             }
-        };
-
-        let platform = {
-            let v = take_uniq(&mut desc, "platform", 1)?;
-            v.join(" ")
-        };
-
-        let proto = {
-            let v = take_uniq(&mut desc, "proto", 12)?;
-            hashmap_from_kv_vec(v)
-        };
-
-        let timestamp = {
-            let v = take_uniq(&mut desc, "published", 2)?;
-
-            let date_str = format!("{} {}", v[0], v[1]);
-            date(&date_str)?.1
-        };
-
-        let fingerprint = {
-            let v = take_uniq(&mut desc, "fingerprint", 10)?;
-            v.join("")
-        };
-
-        let uptime = {
-            let v = take_uniq(&mut desc, "uptime", 1)?;
-            v[0].parse()?
-        };
-
-        let bandwidth = {
-            let v = take_uniq(&mut desc, "bandwidth", 3)?;
-            (v[0].parse()?, v[1].parse()?, v[2].parse()?)
-        };
-
-        let extra_info = {
-            let v = take_uniq(&mut desc, "extra-info-digest", 1)?;
-            v.join(" ")
-        };
-
-        let hidden_service = take_opt(&mut desc, "hidden-service-dir", 0)?.is_some();
-
-        let contact = { take_opt(&mut desc, "contact", 1)?.map(|v| v.join(" ")) };
-
-        let distribution_request =
-            if let Some(v) = take_opt(&mut desc, "bridge-distribution-request", 1)? {
-                v[0]
-            } else {
-                "any"
-            }
-            .to_owned();
-
-        let onion_key = {
-            let v = take_uniq(&mut desc, "ntor-onion-key", 1)?;
-            v[0].to_owned()
-        };
-
-        let accept_reject = {
-            let v = take_multi_descriptor_lines(&mut desc, "accept reject", 1)?;
-            v.iter()
-                .map(|e| match e.name {
-                    "accept" => Network::Accept(e.values[0].to_owned()),
-                    "reject" => Network::Reject(e.values[0].to_owned()),
-                    _ => panic!("parsing went wrong"),
-                })
-                .collect()
-        };
-
-        let tunnelled = take_opt(&mut desc, "tunnelled-dir-server", 0)?.is_some();
-
-        let router_sha256 = {
-            let v = take_uniq(&mut desc, "router-digest-sha256", 1)?;
-            v[0].to_owned()
-        };
-
-        let router = {
-            let v = take_uniq(&mut desc, "router-digest", 1)?;
-            v[0].to_owned()
-        };
-
-        Ok(BridgeServerDescriptor {
-            timestamp,
-            name,
-            ipv4,
-            or_port,
-            master_key,
-            ipv6,
-            or_port_v6,
-            platform,
-            proto,
-            fingerprint,
-            uptime,
-            bandwidth,
-            extra_info,
-            hidden_service,
-            contact,
-            distribution_request,
-            onion_key,
-            accept_reject,
-            tunnelled,
-            router_sha256,
-            router,
         })
     }
 
@@ -183,23 +196,30 @@ impl BridgeServerDescriptor {
             name: String::new(),
             ipv4: Ipv4Addr::BROADCAST,
             or_port: 0,
-            master_key: String::new(),
-            ipv6: None,
-            or_port_v6: None,
+            master_key: None,
+            additional_address: None,
+            additional_port: None,
             platform: String::new(),
             proto: HashMap::new(),
             fingerprint: String::new(),
-            uptime: 0,
+            uptime: None,
             bandwidth: (0, 0, 0),
-            extra_info: String::new(),
+            extra_info: None,
             hidden_service: false,
             contact: None,
             distribution_request: String::new(),
-            onion_key: String::new(),
+            onion_key: None,
             accept_reject: Vec::new(),
             tunnelled: false,
-            router_sha256: String::new(),
+            router_sha256: None,
             router: String::new(),
+            protocols: Vec::new(),
+            hibernating: false,
+            cache_extra_info: false,
+            family: Vec::new(),
+            allow_single_hop_exits: false,
+            overload: None,
+            ipv6_policy: Network::Reject("1-65535".to_owned()),
         }
     }
 }
