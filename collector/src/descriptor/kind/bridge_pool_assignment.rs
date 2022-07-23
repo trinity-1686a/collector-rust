@@ -34,7 +34,6 @@ impl BridgePoolAssignment {
         });
 
         let (i, _) = it.finish()?;
-
         t(eof(i))?;
 
         Ok(BridgePoolAssignment { timestamp, data })

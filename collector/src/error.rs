@@ -24,7 +24,7 @@ pub enum ErrorKind {
     HashMissmatch,
     HttpError(u16),
     UnsupportedDesc(String),
-    MalformedDesc,
+    MalformedDesc(String),
 }
 
 impl std::fmt::Display for ErrorKind {
@@ -34,14 +34,14 @@ impl std::fmt::Display for ErrorKind {
             HashMissmatch => f.write_str("Hash missmatch"),
             HttpError(code) => write!(f, "Http error, code {}", code),
             UnsupportedDesc(msg) => f.write_str(msg),
-            MalformedDesc => f.write_str("Malformed descriptor"),
+            MalformedDesc(msg) => write!(f, "Malformed descriptor {msg}"),
         }
     }
 }
 
-impl<T> From<nom::Err<T>> for Error {
-    fn from(_: nom::Err<T>) -> Self {
-        Error::Collector(ErrorKind::MalformedDesc)
+impl<T: std::fmt::Debug> From<nom::Err<T>> for Error {
+    fn from(e: nom::Err<T>) -> Self {
+        Error::Collector(ErrorKind::MalformedDesc(format!("nom: {e:?}")))
     }
 }
 

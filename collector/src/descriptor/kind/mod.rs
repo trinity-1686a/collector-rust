@@ -284,7 +284,10 @@ pub(crate) struct DescriptorLine<'a> {
 impl<'a> DescriptorLine<'a> {
     pub fn parse(input: &'a str) -> nom::IResult<&str, Self, nom::error::Error<&str>> {
         use crate::descriptor::nom_combinators::*;
-        let (i, (name, values)) = sp_separated(input)?;
+        let (i, (mut name, mut values)) = sp_separated(input)?;
+        if name == "opt" && !values.is_empty() {
+            name = values.remove(0);
+        }
         let (i, _) = line_ending(i)?;
         let (i, cert) = opt(cert)(i)?;
 
