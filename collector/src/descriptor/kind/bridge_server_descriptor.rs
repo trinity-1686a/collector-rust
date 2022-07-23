@@ -64,8 +64,8 @@ impl BridgeServerDescriptor {
             desc => BridgeServerDescriptor rest {
                 uniq("router") [name, ip, port, _socks_port, _dir_port] => {
                     name: name.to_owned(),
-                    ipv4: ip.parse().unwrap(),
-                    or_port: port.parse().unwrap(),
+                    ipv4: ip.parse()?,
+                    or_port: port.parse()?,
                 },
                 opt("master-key-ed25519") [key] => {
                     master_key: key.map(|k| k.to_owned()),

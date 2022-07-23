@@ -51,8 +51,8 @@ impl ServerDescriptor {
             desc => ServerDescriptor rest {
                 uniq("router") [name, ip, port] => {
                         name: name.to_owned(),
-                        ipv4: ip.parse().unwrap(),
-                        or_port: port.parse().unwrap(),
+                        ipv4: ip.parse()?,
+                        or_port: port.parse()?,
                 },
                 uniq("published") [day, hour] => {
                     timestamp: date(&format!("{} {}", day, hour))?.1,
