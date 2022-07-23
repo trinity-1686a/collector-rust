@@ -1,4 +1,3 @@
-use std::num::ParseIntError;
 use std::{cmp::Ordering, collections::HashMap};
 
 use chrono::{DateTime, Utc};
@@ -39,24 +38,21 @@ impl History {
         let d = data[4]
             .split(',')
             .map(|x| x.parse())
-            .collect::<Vec<Result<u64, ParseIntError>>>();
+            .collect::<Result<Vec<u64>, _>>();
 
-        if d.iter().any(|x| x.is_err()) {
+        if d.is_err() {
             return Err(ErrorKind::MalformedDesc.into());
         }
-
-        let data = d.iter().map(|x| *(x.as_ref().unwrap())).collect();
 
         Ok(History {
             timestamp,
             duration,
-            data,
+            data: d.unwrap(),
         })
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-#[non_exhaustive]
 pub struct BridgeExtraInfo {
     pub timestamp: DateTime<Utc>,
     pub name: String,
@@ -72,22 +68,22 @@ pub struct BridgeExtraInfo {
     pub geoip: String,
     pub geoip6: String,
     pub dirreq_stats_end: (DateTime<Utc>, u64),
-    pub dirreq_v3_ips: HashMap<String, String>,
-    pub dirreq_v3_reqs: HashMap<String, String>,
-    pub dirreq_v3_resp: HashMap<String, String>,
-    pub dirreq_v3_direct_dl: HashMap<String, String>,
-    pub dirreq_v3_tunneled_dl: HashMap<String, String>,
+    pub dirreq_v3_ips: HashMap<String, u64>,
+    pub dirreq_v3_reqs: HashMap<String, u64>,
+    pub dirreq_v3_resp: HashMap<String, u64>,
+    pub dirreq_v3_direct_dl: HashMap<String, u64>,
+    pub dirreq_v3_tunneled_dl: HashMap<String, u64>,
     pub hidserv_stats_end: (DateTime<Utc>, u64),
     pub hidserv_rend_relayed_cells: (String, HashMap<String, String>),
     pub hidserv_dir_onions_seen: (String, HashMap<String, String>),
     pub hidserv_v3_stats_end: (DateTime<Utc>, u64),
     pub hidserv_rend_v3_relayed_cells: (String, HashMap<String, String>),
     pub hidserv_dir_v3_onions_seen: (String, HashMap<String, String>),
-    pub padding_counts: (DateTime<Utc>, u64, HashMap<String, String>),
+    pub padding_counts: (DateTime<Utc>, u64, HashMap<String, u64>),
     pub bridge_stats_end: (DateTime<Utc>, u64),
-    pub bridge_ips: HashMap<String, String>,
-    pub bridge_ip_versions: HashMap<String, String>,
-    pub bridge_ip_transports: HashMap<String, String>,
+    pub bridge_ips: HashMap<String, u64>,
+    pub bridge_ip_versions: HashMap<String, u64>,
+    pub bridge_ip_transports: HashMap<String, u64>,
     pub router_sha256: String,
     pub router: String,
 }
@@ -177,32 +173,27 @@ impl BridgeExtraInfo {
 
         let dirreq_v3_ips = {
             let v = take_uniq(&mut desc, "dirreq-v3-ips", 1)?;
-            let data = v[0].split(',').collect::<Vec<_>>();
-            hashmap_from_kv_vec(data)
+            create_kv_u64(v[0].split(',').collect())?
         };
 
         let dirreq_v3_reqs = {
             let v = take_uniq(&mut desc, "dirreq-v3-reqs", 1)?;
-            let data = v[0].split(',').collect::<Vec<_>>();
-            hashmap_from_kv_vec(data)
+            create_kv_u64(v[0].split(',').collect())?
         };
 
         let dirreq_v3_resp = {
             let v = take_uniq(&mut desc, "dirreq-v3-resp", 1)?;
-            let data = v[0].split(',').collect::<Vec<_>>();
-            hashmap_from_kv_vec(data)
+            create_kv_u64(v[0].split(',').collect())?
         };
 
         let dirreq_v3_direct_dl = {
             let v = take_uniq(&mut desc, "dirreq-v3-direct-dl", 1)?;
-            let data = v[0].split(',').collect::<Vec<_>>();
-            hashmap_from_kv_vec(data)
+            create_kv_u64(v[0].split(',').collect())?
         };
 
         let dirreq_v3_tunneled_dl = {
             let v = take_uniq(&mut desc, "dirreq-v3-tunneled-dl", 1)?;
-            let data = v[0].split(',').collect::<Vec<_>>();
-            hashmap_from_kv_vec(data)
+            create_kv_u64(v[0].split(',').collect())?
         };
 
         let hidserv_stats_end = {
@@ -240,13 +231,13 @@ impl BridgeExtraInfo {
         };
 
         let padding_counts = {
-            let v = take_uniq(&mut desc, "bridge-stats-end", 5)?;
+            let v = take_uniq(&mut desc, "padding-counts", 5)?;
             let date_str = format!("{} {}", v[0], v[1]);
 
             (
                 date(&date_str)?.1,
                 v[2][1..].parse()?,
-                hashmap_from_kv_vec(v[4..].to_vec()),
+                create_kv_u64(v[4..].to_vec())?,
             )
         };
 
@@ -259,20 +250,17 @@ impl BridgeExtraInfo {
 
         let bridge_ips = {
             let v = take_uniq(&mut desc, "bridge-ips", 1)?;
-            let data = v[0].split(',').collect::<Vec<_>>();
-            hashmap_from_kv_vec(data)
+            create_kv_u64(v[0].split(',').collect())?
         };
 
         let bridge_ip_versions = {
             let v = take_uniq(&mut desc, "bridge-ip-versions", 1)?;
-            let data = v[0].split(',').collect::<Vec<_>>();
-            hashmap_from_kv_vec(data)
+            create_kv_u64(v[0].split(',').collect())?
         };
 
         let bridge_ip_transports = {
             let v = take_uniq(&mut desc, "bridge-ip-transports", 1)?;
-            let data = v[0].split(',').collect::<Vec<_>>();
-            hashmap_from_kv_vec(data)
+            create_kv_u64(v[0].split(',').collect())?
         };
 
         let router_sha256 = {
@@ -359,10 +347,22 @@ impl BridgeExtraInfo {
     }
 }
 
+fn create_kv_u64(v: Vec<&str>) -> Result<HashMap<String, u64>, Error> {
+    v.iter()
+        .map(|val| -> Result<(String, u64), Error> {
+            let (a, b) = val
+                .split_once('=')
+                .ok_or(ErrorKind::MalformedDesc)?;
+            Ok((a.to_owned(), b.parse()?))
+        })
+        .collect()
+}
+
 impl Ord for BridgeExtraInfo {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.timestamp.cmp(&other.timestamp)
-        //.then(self.fingerprint.cmp(&other.fingerprint))
+        self.timestamp
+            .cmp(&other.timestamp)
+            .then(self.fingerprint.cmp(&other.fingerprint))
     }
 }
 

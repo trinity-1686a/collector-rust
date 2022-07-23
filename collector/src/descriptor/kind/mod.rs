@@ -339,7 +339,6 @@ mod tests {
     #[tokio::test]
     async fn test_bridge_extra_info() {
         let res = read_test_file("tests/bridge_extra_info_test").await;
-        println!("{:?}", res);
         assert_eq!(res.len(), 1);
         assert!(res[0].is_ok());
     }
