@@ -205,29 +205,6 @@ impl<'de> Deserialize<'de> for VersionnedType {
     }
 }
 
-impl Descriptor {
-    pub fn decode(raw_descriptor: &str) -> Result<Self, Error> {
-        let (buff, vt) = VersionnedType::parse(raw_descriptor)?;
-
-        match vt.ttype {
-            Type::BridgePoolAssignment => Ok(Descriptor::BridgePoolAssignment(
-                BridgePoolAssignment::parse(buff, vt.version)?,
-            )),
-            Type::BridgeServerDescriptor => Ok(Descriptor::BridgeServerDescriptor(
-                BridgeServerDescriptor::parse(buff, vt.version)?,
-            )),
-            Type::ServerDescriptor => Ok(Descriptor::ServerDescriptor(ServerDescriptor::parse(
-                buff, vt.version,
-            )?)),
-            t => Err(ErrorKind::UnsupportedDesc(format!(
-                "unsupported descriptor {}, not implemented",
-                t
-            ))
-            .into()),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum Descriptor {
     BridgePoolAssignment(BridgePoolAssignment),
@@ -253,6 +230,27 @@ pub enum Descriptor {
 }
 
 impl Descriptor {
+    pub fn decode(raw_descriptor: &str) -> Result<Self, Error> {
+        let (buff, vt) = VersionnedType::parse(raw_descriptor)?;
+
+        match vt.ttype {
+            Type::BridgePoolAssignment => Ok(Descriptor::BridgePoolAssignment(
+                BridgePoolAssignment::parse(buff, vt.version)?,
+            )),
+            Type::BridgeServerDescriptor => Ok(Descriptor::BridgeServerDescriptor(
+                BridgeServerDescriptor::parse(buff, vt.version)?,
+            )),
+            Type::ServerDescriptor => Ok(Descriptor::ServerDescriptor(ServerDescriptor::parse(
+                buff, vt.version,
+            )?)),
+            t => Err(ErrorKind::UnsupportedDesc(format!(
+                "unsupported descriptor {}, not implemented",
+                t
+            ))
+            .into()),
+        }
+    }
+
     pub fn bridge_pool_assignment(self) -> Result<BridgePoolAssignment, Self> {
         match self {
             Descriptor::BridgePoolAssignment(d) => Ok(d),
@@ -280,6 +278,7 @@ pub(crate) struct DescriptorLine<'a> {
     pub name: &'a str,
     pub values: Vec<&'a str>,
     pub cert: Option<&'a str>,
+    pub line: u32,
 }
 
 impl<'a> DescriptorLine<'a> {
@@ -289,7 +288,15 @@ impl<'a> DescriptorLine<'a> {
         let (i, _) = line_ending(i)?;
         let (i, cert) = opt(cert)(i)?;
 
-        Ok((i, DescriptorLine { name, values, cert }))
+        Ok((
+            i,
+            DescriptorLine {
+                name,
+                values,
+                cert,
+                line: 0,
+            },
+        ))
     }
 }
 
