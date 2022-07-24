@@ -148,7 +148,7 @@ impl BridgeServerDescriptor {
                 },
                 opt("protocols") [] => {
                     protocols: rest.unwrap_or_default()
-                        .into_iter()
+                        .iter()
                         .map(|i| (*i).to_owned())
                         .collect(),
                 },
@@ -160,7 +160,7 @@ impl BridgeServerDescriptor {
                 },
                 opt("family") [] => {
                     family: rest.unwrap_or_default()
-                        .into_iter()
+                        .iter()
                         .map(|i| (*i).to_owned())
                         .collect(),
                 },
