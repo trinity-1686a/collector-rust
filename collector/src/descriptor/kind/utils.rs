@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use super::DescriptorLine;
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 
 pub(crate) fn descriptor_lines(input: &str) -> Result<HashMap<&str, Vec<DescriptorLine>>, Error> {
     use crate::descriptor::nom_combinators::*;
@@ -136,6 +136,17 @@ macro_rules! extract_desc {
                     ).into());
         }
     };
+}
+
+pub(crate) fn hashmap_from_kv_vec(data: Vec<&str>) -> Result<HashMap<String, String>, Error> {
+    data.iter()
+        .map(|val| {
+            let (a, b) = val
+                .split_once('=')
+                .ok_or_else(|| ErrorKind::MalformedDesc("Key value malformed".to_owned()))?;
+            Ok((a.to_owned(), b.to_owned()))
+        })
+        .collect()
 }
 
 pub(crate) use extract_desc;

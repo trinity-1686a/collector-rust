@@ -1,0 +1,32 @@
+@type bridge-extra-info 1.3
+extra-info Sr2Sponsor96Br259 C5E0691ED1AA350DA1DA23D82B0A86FF75AD6E16
+master-key-ed25519 cA0Q+GGP7JDhj+Zzr0iicOgEla0NFeF1Ig4m16eHOgM
+published 2022-07-17 18:07:19
+transport obfs4
+write-history 2022-07-17 14:13:55 (86400 s) 5917575168,9937805312,5426481152,9435629568,9116710912
+read-history 2022-07-17 14:13:55 (86400 s) 5980400640,9971574784,5476969472,9566876672,9180185600
+ipv6-write-history 2022-07-17 14:13:55 (86400 s) 75968512,108977152,74257408,142914560,153560064
+ipv6-read-history 2022-07-17 14:13:55 (86400 s) 1126630400,1657625600,1098531840,1828595712,2533993472
+dirreq-write-history 2022-07-17 14:13:55 (86400 s) 68747264,109254656,68550656,54005760,67427328
+dirreq-read-history 2022-07-17 14:13:55 (86400 s) 2897920,4793344,2747392,2297856,3246080
+geoip-db-digest 61160E1C1E2E6FCA2EEEA8F2E364C18A85B8C7D5
+geoip6-db-digest 0A1240801C39A253333AAB21789009EE5F68A3DD
+dirreq-stats-end 2022-07-17 14:13:56 (86400 s)
+dirreq-v3-ips ru=40,ae=8,by=8,cn=8,nl=8,rs=8,tr=8,ua=8,us=8
+dirreq-v3-reqs ru=64,ae=8,by=8,cn=8,nl=8,rs=8,tr=8,ua=8,us=8
+dirreq-v3-resp ok=80,not-enough-sigs=0,unavailable=0,not-found=0,not-modified=0,busy=0
+dirreq-v3-direct-dl complete=0,timeout=0,running=0
+dirreq-v3-tunneled-dl complete=72,timeout=8,running=0,min=39284,d1=221460,d2=342028,q1=440507,d3=481265,d4=595869,md=884014,d6=1075667,d7=1612301,q3=1793589,d8=5364333,d9=9678750,max=16932500
+hidserv-stats-end 2022-07-17 14:13:56 (86400 s)
+hidserv-rend-relayed-cells 10323 delta_f=2048 epsilon=0.30 bin_size=1024
+hidserv-dir-onions-seen -43 delta_f=8 epsilon=0.30 bin_size=8
+hidserv-v3-stats-end 2022-07-17 12:00:00 (86400 s)
+hidserv-rend-v3-relayed-cells 724 delta_f=2048 epsilon=0.30 bin_size=1024
+hidserv-dir-v3-onions-seen -20 delta_f=8 epsilon=0.30 bin_size=8
+padding-counts 2022-07-17 14:13:58 (86400 s) bin-size=10000 write-drop=0 write-pad=40000 write-total=17580000 read-drop=0 read-pad=230000 read-total=17680000 enabled-read-pad=230000 enabled-read-total=17660000 enabled-write-pad=40000 enabled-write-total=17530000 max-chanpad-timers=143
+bridge-stats-end 2022-07-17 14:13:58 (86400 s)
+bridge-ips ru=64,ae=8,au=8,by=8,cn=8,de=8,in=8,ir=8,nl=8,pl=8,rs=8,tr=8,ua=8,us=8
+bridge-ip-versions v4=80,v6=0
+bridge-ip-transports obfs4=80
+router-digest-sha256 kOVbqwwb+LRRVO0t0jTjTFnleJwvpKRHwdJ5U602d+8
+router-digest 252940E90DA8A7441311718EA1ECCC2A29CE0C60
