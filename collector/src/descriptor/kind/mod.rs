@@ -1,8 +1,10 @@
+mod bridge_extra_info;
 mod bridge_pool_assignment;
 mod bridge_server_descriptor;
 mod server_descriptor;
 pub(crate) mod utils;
 
+pub use bridge_extra_info::BridgeExtraInfo;
 pub use bridge_pool_assignment::BridgePoolAssignment;
 pub use bridge_server_descriptor::BridgeServerDescriptor;
 pub use server_descriptor::ServerDescriptor;
@@ -207,12 +209,12 @@ impl<'de> Deserialize<'de> for VersionnedType {
 
 #[derive(Debug)]
 pub enum Descriptor {
+    BridgeExtraInfo(BridgeExtraInfo),
     BridgePoolAssignment(BridgePoolAssignment),
     BridgeServerDescriptor(BridgeServerDescriptor),
     ServerDescriptor(ServerDescriptor),
     /*
         BandwidthFile,
-        BridgeExtraInfo,
         BridgeNetworkStatus,
         BridgestrapStats,
         DirKeyCertificate3,
@@ -234,6 +236,9 @@ impl Descriptor {
         let (buff, vt) = VersionnedType::parse(raw_descriptor)?;
 
         match vt.ttype {
+            Type::BridgeExtraInfo => Ok(Descriptor::BridgeExtraInfo(
+                BridgeExtraInfo::parse(buff, vt.version)?,
+            )),
             Type::BridgePoolAssignment => Ok(Descriptor::BridgePoolAssignment(
                 BridgePoolAssignment::parse(buff, vt.version)?,
             )),
@@ -248,6 +253,13 @@ impl Descriptor {
                 t
             ))
             .into()),
+        }
+    }
+
+    pub fn bridge_extra_info(self) -> Result<BridgeExtraInfo, Self> {
+        match self {
+            Descriptor::BridgeExtraInfo(d) => Ok(d),
+            _ => Err(self),
         }
     }
 
@@ -332,5 +344,13 @@ mod tests {
         res.iter().for_each(|d| {
             assert!(d.is_ok());
         });
+    }
+
+    #[tokio::test]
+    async fn test_bridge_extra_info() {
+        let res = read_test_file("tests/bridge_extra_info_test").await;
+        println!("{:?}", res);
+        assert_eq!(res.len(), 1);
+        assert!(res[0].is_ok());
     }
 }
