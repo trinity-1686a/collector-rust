@@ -84,7 +84,7 @@ fn fallbacks() -> HashMap<String, Vec<SocketAddr>> {
     fn fallback(rsa: &str, _ed: &str, addr: &[&str]) -> (String, Vec<SocketAddr>) {
         (
             rsa.to_owned(),
-            addr.into_iter().map(|a| a.parse().unwrap()).collect(),
+            addr.iter().map(|a| a.parse().unwrap()).collect(),
         )
     }
     include!("fallback_dirs.inc").into_iter().collect()

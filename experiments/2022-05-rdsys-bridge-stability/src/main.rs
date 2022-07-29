@@ -61,8 +61,8 @@ async fn main() {
         }
 
         let descs = descriptors.get(&change.fingerprint).unwrap();
-        let start = BridgeServerDescriptor::empty(change.before.clone() - Duration::days(2));
-        let end = BridgeServerDescriptor::empty(change.after.clone() + Duration::days(1));
+        let start = BridgeServerDescriptor::empty(change.before - Duration::days(2));
+        let end = BridgeServerDescriptor::empty(change.after + Duration::days(1));
         if descs
             .range(start..end)
             .any(|d| d.distribution_request == change.new_mechanism)
@@ -70,8 +70,8 @@ async fn main() {
             continue;
         }
 
-        let start = BridgeServerDescriptor::empty(change.before.clone() - Duration::days(5));
-        let end = BridgeServerDescriptor::empty(change.after.clone() + Duration::days(2));
+        let start = BridgeServerDescriptor::empty(change.before - Duration::days(5));
+        let end = BridgeServerDescriptor::empty(change.after + Duration::days(2));
         let ips: Vec<_> = descs.range(start..=end).map(|desc| desc.ipv4).collect();
         if ips.len() < 3 {
             println!("wtf={}", change.fingerprint);
@@ -102,8 +102,8 @@ fn list_changes(descs: BTreeSet<BridgePoolAssignment>) -> Vec<Change> {
                 if v1.0 != v2.0 {
                     res.push(Change {
                         fingerprint: k.to_ascii_uppercase(),
-                        before: previous_desc.timestamp.clone(),
-                        after: new_desc.timestamp.clone(),
+                        before: previous_desc.timestamp,
+                        after: new_desc.timestamp,
                         old_mechanism: v1.0.clone(),
                         new_mechanism: v2.0.clone(),
                     });

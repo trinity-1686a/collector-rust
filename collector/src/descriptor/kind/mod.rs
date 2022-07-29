@@ -209,10 +209,10 @@ impl<'de> Deserialize<'de> for VersionnedType {
 
 #[derive(Debug)]
 pub enum Descriptor {
-    BridgeExtraInfo(BridgeExtraInfo),
+    BridgeExtraInfo(Box<BridgeExtraInfo>),
     BridgePoolAssignment(BridgePoolAssignment),
-    BridgeServerDescriptor(BridgeServerDescriptor),
-    ServerDescriptor(ServerDescriptor),
+    BridgeServerDescriptor(Box<BridgeServerDescriptor>),
+    ServerDescriptor(Box<ServerDescriptor>),
     /*
         BandwidthFile,
         BridgeNetworkStatus,
@@ -236,18 +236,18 @@ impl Descriptor {
         let (buff, vt) = VersionnedType::parse(raw_descriptor)?;
 
         match vt.ttype {
-            Type::BridgeExtraInfo => Ok(Descriptor::BridgeExtraInfo(
+            Type::BridgeExtraInfo => Ok(Descriptor::BridgeExtraInfo(Box::new(
                 BridgeExtraInfo::parse(buff, vt.version)?,
-            )),
+            ))),
             Type::BridgePoolAssignment => Ok(Descriptor::BridgePoolAssignment(
                 BridgePoolAssignment::parse(buff, vt.version)?,
             )),
-            Type::BridgeServerDescriptor => Ok(Descriptor::BridgeServerDescriptor(
+            Type::BridgeServerDescriptor => Ok(Descriptor::BridgeServerDescriptor(Box::new(
                 BridgeServerDescriptor::parse(buff, vt.version)?,
-            )),
-            Type::ServerDescriptor => Ok(Descriptor::ServerDescriptor(ServerDescriptor::parse(
-                buff, vt.version,
-            )?)),
+            ))),
+            Type::ServerDescriptor => Ok(Descriptor::ServerDescriptor(Box::new(
+                ServerDescriptor::parse(buff, vt.version)?,
+            ))),
             t => Err(ErrorKind::UnsupportedDesc(format!(
                 "unsupported descriptor {}, not implemented",
                 t
@@ -258,7 +258,7 @@ impl Descriptor {
 
     pub fn bridge_extra_info(self) -> Result<BridgeExtraInfo, Self> {
         match self {
-            Descriptor::BridgeExtraInfo(d) => Ok(d),
+            Descriptor::BridgeExtraInfo(d) => Ok(*d),
             _ => Err(self),
         }
     }
@@ -272,14 +272,14 @@ impl Descriptor {
 
     pub fn bridge_server_descriptor(self) -> Result<BridgeServerDescriptor, Self> {
         match self {
-            Descriptor::BridgeServerDescriptor(d) => Ok(d),
+            Descriptor::BridgeServerDescriptor(d) => Ok(*d),
             _ => Err(self),
         }
     }
 
     pub fn server_descriptor(self) -> Result<ServerDescriptor, Self> {
         match self {
-            Descriptor::ServerDescriptor(d) => Ok(d),
+            Descriptor::ServerDescriptor(d) => Ok(*d),
             _ => Err(self),
         }
     }
