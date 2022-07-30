@@ -73,6 +73,24 @@ macro_rules! extract_desc {
             @pattern (&__item.values[..]) $rest [$($name)*] [$($opt)*] ($keyword)
         }
     };
+    (@extractor cert $rest:ident ($map:expr), ($keyword:expr) [$cert:ident, $($name:ident),*] [$($opt:ident),*]) => {
+        let mut __item = $map.remove($keyword).ok_or(ErrorKind::MalformedDesc(
+                       concat!("line ", $keyword, " missing").to_owned()
+                ))?;
+        if __item.len() != 1 {
+            return Err(ErrorKind::MalformedDesc(
+                       concat!("line ", $keyword, " appeared multiple times").to_owned()
+                    ).into());
+        }
+        let __item = __item.pop().unwrap();
+        let $cert = __item.cert.ok_or(ErrorKind::MalformedDesc(
+                       concat!("line ", $keyword, " miss a certificate").to_owned()
+                ))?;
+
+        extract_desc!{
+            @pattern (&__item.values[..]) $rest [$($name)*] [$($opt)*] ($keyword)
+        }
+    };
     (@extractor opt $rest:ident ($map:expr), ($keyword:expr) [$($name:ident),*] []) => {
         let __item = $map.remove($keyword);
         let mut __item2 = None;
