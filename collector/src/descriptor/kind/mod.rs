@@ -353,4 +353,12 @@ mod tests {
         assert_eq!(res.len(), 1);
         assert!(res[0].is_ok());
     }
+
+    #[tokio::test]
+    async fn test_server_descriptor() {
+        let res = read_test_file("tests/server_descriptor_test").await;
+        println!("{:?}", res);
+        assert_eq!(res.len(), 1);
+        assert!(res[0].is_ok());
+    }
 }

@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV6};
 
 use chrono::{DateTime, Utc};
@@ -21,15 +22,24 @@ pub struct ServerDescriptor {
     pub or_port: u16,
     pub ipv6: Option<Ipv6Addr>,
     pub or_port_v6: Option<u16>,
+    pub identity_ed25519: String,
+    pub master_key_ed25519: String,
     pub platform: String,
+    pub proto: HashMap<String,String>,
     pub fingerprint: String,
     pub uptime: u64,
     pub bandwidth: (u64, u64, u64),
     pub extra_info: String,
+    pub onion_key: String,
+    pub signing_key: String,
+    pub onion_key_crosscert: String,
+    pub ntor_onion_key_crosscert: (String, i64),
     pub hidden_service: bool,
     pub contact: Option<String>,
-    pub onion_key: String,
+    pub ntor_onion_key: String,
     pub accept_reject: Vec<Network>,
+    pub router_sig_ed25519: String,
+    pub router_signature: String,
     pub tunnelled: bool,
 }
 
@@ -63,8 +73,23 @@ impl ServerDescriptor {
                     or_port_v6: address.map(str::parse::<SocketAddrV6>).transpose()?
                         .as_ref().map(SocketAddrV6::port),
                 },
+                cert("identity-ed25519") [certif] => {
+                    identity_ed25519: certif.to_owned(),
+                },
+                uniq("master-key-ed25519") [key] => {
+                    master_key_ed25519: key.to_owned(),
+                },
                 uniq("platform") [] => {
                     platform: rest.join(" "),
+                },
+                opt("proto") [] => {
+                    // TODO should reject when split_once fail
+                    proto: rest.map(|r|
+                                    r.iter()
+                                    .filter_map(|v| v.split_once('='))
+                                    .map(|(k,v)| (k.to_owned(), v.to_owned()))
+                                    .collect()
+                                ).unwrap_or_default(),
                 },
                 uniq("fingerprint") [] => {
                     fingerprint: rest.join(" "),
@@ -78,6 +103,18 @@ impl ServerDescriptor {
                 uniq("extra-info-digest") [] => {
                     extra_info: rest.join(" "),
                 },
+                cert("onion-key") [certif] => {
+                    onion_key: certif.to_owned(),
+                },
+                cert("signing-key") [certif] => {
+                    signing_key: certif.to_owned(),
+                },
+                cert("onion-key-crosscert") [certif] => {
+                    onion_key_crosscert: certif.to_owned(),
+                },
+                cert("ntor-onion-key-crosscert") [certif, num] => {
+                    ntor_onion_key_crosscert: (certif.to_owned(), num.parse()?),
+                },
                 opt("hidden-service-dir") [] => {
                     hidden_service: rest.is_some(),
                 },
@@ -85,7 +122,7 @@ impl ServerDescriptor {
                     contact: rest.map(|r| r.join(" ")),
                 },
                 uniq("ntor-onion-key") [key] => {
-                    onion_key: key.to_owned(),
+                    ntor_onion_key: key.to_owned(),
                 },
                 opt("tunnelled-dir-server") [] => {
                     tunnelled: rest.is_some(),
@@ -112,6 +149,12 @@ impl ServerDescriptor {
                         .collect::<Result<Vec<_>, Error>>()?
                     },
                 },
+                uniq("router-sig-ed25519") [sig] => {
+                    router_sig_ed25519: sig.to_owned(),
+                },
+                cert("router-signature") [certif] => {
+                    router_signature: certif.to_owned(),
+                },
             }
         })
     }
@@ -125,15 +168,24 @@ impl ServerDescriptor {
             or_port: 0,
             ipv6: None,
             or_port_v6: None,
+            identity_ed25519: String::new(),
+            master_key_ed25519: String::new(),
             platform: String::new(),
+            proto: HashMap::new(),
             fingerprint: String::new(),
             uptime: 0,
             bandwidth: (0, 0, 0),
             extra_info: String::new(),
+            onion_key: String::new(),
+            signing_key: String::new(),
+            onion_key_crosscert: String::new(),
+            ntor_onion_key_crosscert: (String::new(), 0),
             hidden_service: false,
             contact: None,
-            onion_key: String::new(),
+            ntor_onion_key: String::new(),
             accept_reject: Vec::new(),
+            router_sig_ed25519: String::new(),
+            router_signature: String::new(),
             tunnelled: false,
         }
     }
