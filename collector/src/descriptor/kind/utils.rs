@@ -73,7 +73,7 @@ macro_rules! extract_desc {
             @pattern (&__item.values[..]) $rest [$($name)*] [$($opt)*] ($keyword)
         }
     };
-    (@extractor cert $rest:ident ($map:expr), ($keyword:expr) [$cert:ident, $($name:ident),*] [$($opt:ident),*]) => {
+    (@extractor cert $rest:ident ($map:expr), ($keyword:expr) [$cert:ident $(, $name:ident),*] [$($opt:ident),*]) => {
         let mut __item = $map.remove($keyword).ok_or(ErrorKind::MalformedDesc(
                        concat!("line ", $keyword, " missing").to_owned()
                 ))?;
