@@ -10,7 +10,7 @@ use tokio::io::AsyncReadExt;
 use crate::descriptor::{Type, VersionnedType};
 use crate::error::Error;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Index {
     /// Creation time of the index
     pub creation_time: DateTime<Utc>,

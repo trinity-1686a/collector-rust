@@ -25,7 +25,7 @@ pub struct ServerDescriptor {
     pub identity_ed25519: String,
     pub master_key_ed25519: String,
     pub platform: String,
-    pub proto: HashMap<String,String>,
+    pub proto: HashMap<String, String>,
     pub fingerprint: String,
     pub uptime: u64,
     pub bandwidth: (u64, u64, u64),
@@ -131,14 +131,14 @@ impl ServerDescriptor {
                     accept_reject: {
                         rest.iter().map(|e| match e.name {
                             "accept" => Ok(Network::Accept(e.values
-                                               .get(0)
+                                               .first()
                                                .ok_or_else(||
                                                     ErrorKind::MalformedDesc(
                                                         "missing parameters to accept".to_owned()
                                                         ))?
                                                .to_string())),
                             "reject" => Ok(Network::Reject(e.values
-                                               .get(0)
+                                               .first()
                                                .ok_or_else(||
                                                     ErrorKind::MalformedDesc(
                                                         "missing parameters to reject".to_owned()

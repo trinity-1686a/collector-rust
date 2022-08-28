@@ -49,6 +49,11 @@ impl History {
             data,
         })
     }
+
+    fn from_optional_vec(data: Option<&[&str]>) -> Result<Option<History>, Error> {
+        data.map(|d| History::from_parsed_vec(d.to_vec()))
+            .transpose()
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -57,32 +62,32 @@ pub struct BridgeExtraInfo {
     pub name: String,
     pub fingerprint: String,
     pub master_key: Option<String>,
-    pub transport: String,
-    pub write_history: History,
-    pub read_history: History,
-    pub write_history_v6: History,
-    pub read_history_v6: History,
-    pub dirreq_write_history: History,
-    pub dirreq_read_history: History,
-    pub geoip: String,
-    pub geoip6: String,
-    pub dirreq_stats_end: (DateTime<Utc>, u64),
-    pub dirreq_v3_ips: HashMap<String, u64>,
-    pub dirreq_v3_reqs: HashMap<String, u64>,
-    pub dirreq_v3_resp: HashMap<String, u64>,
-    pub dirreq_v3_direct_dl: HashMap<String, u64>,
-    pub dirreq_v3_tunneled_dl: HashMap<String, u64>,
-    pub hidserv_stats_end: (DateTime<Utc>, u64),
-    pub hidserv_rend_relayed_cells: (String, HashMap<String, String>),
-    pub hidserv_dir_onions_seen: (String, HashMap<String, String>),
-    pub hidserv_v3_stats_end: (DateTime<Utc>, u64),
-    pub hidserv_rend_v3_relayed_cells: (String, HashMap<String, String>),
-    pub hidserv_dir_v3_onions_seen: (String, HashMap<String, String>),
-    pub padding_counts: (DateTime<Utc>, u64, HashMap<String, u64>),
-    pub bridge_stats_end: (DateTime<Utc>, u64),
-    pub bridge_ips: HashMap<String, u64>,
-    pub bridge_ip_versions: HashMap<String, u64>,
-    pub bridge_ip_transports: HashMap<String, u64>,
+    pub transport: Vec<String>,
+    pub write_history: Option<History>,
+    pub read_history: Option<History>,
+    pub write_history_v6: Option<History>,
+    pub read_history_v6: Option<History>,
+    pub dirreq_write_history: Option<History>,
+    pub dirreq_read_history: Option<History>,
+    pub geoip: Option<String>,
+    pub geoip6: Option<String>,
+    pub dirreq_stats_end: Option<(DateTime<Utc>, u64)>,
+    pub dirreq_v3_ips: Option<HashMap<String, u64>>,
+    pub dirreq_v3_reqs: Option<HashMap<String, u64>>,
+    pub dirreq_v3_resp: Option<HashMap<String, u64>>,
+    pub dirreq_v3_direct_dl: Option<HashMap<String, u64>>,
+    pub dirreq_v3_tunneled_dl: Option<HashMap<String, u64>>,
+    pub hidserv_stats_end: Option<(DateTime<Utc>, u64)>,
+    pub hidserv_rend_relayed_cells: Option<(String, HashMap<String, String>)>,
+    pub hidserv_dir_onions_seen: Option<(String, HashMap<String, String>)>,
+    pub hidserv_v3_stats_end: Option<(DateTime<Utc>, u64)>,
+    pub hidserv_rend_v3_relayed_cells: Option<(String, HashMap<String, String>)>,
+    pub hidserv_dir_v3_onions_seen: Option<(String, HashMap<String, String>)>,
+    pub padding_counts: Option<(DateTime<Utc>, u64, HashMap<String, u64>)>,
+    pub bridge_stats_end: Option<(DateTime<Utc>, u64)>,
+    pub bridge_ips: Option<HashMap<String, u64>>,
+    pub bridge_ip_versions: Option<HashMap<String, u64>>,
+    pub bridge_ip_transports: Option<HashMap<String, u64>>,
     pub router_sha256: String,
     pub router_digest: String,
 }
@@ -113,126 +118,116 @@ impl BridgeExtraInfo {
                 uniq("published") [day, hour] => {
                     timestamp: date(&format!("{} {}", day, hour))?.1,
                 },
-                uniq("transport") [t] => {
-                    transport: t.to_owned(),
+                multi("transport") [] => {
+                    // TODO this is less than ideal; multi should support [xx, yy] params
+                    transport:
+                        rest.iter()
+                            .map(|e| {
+                                Ok(e.values.first()
+                                    .ok_or_else(||
+                                        ErrorKind::MalformedDesc(
+                                            "missing parameters to accept".to_owned()
+                                        ))?
+                                    .to_string())
+                            })
+                           .collect::<Result<Vec<_>, Error>>()?,
                 },
-                uniq("write-history") [] => {
-                    write_history: History::from_parsed_vec(rest.to_vec())?,
+                opt("write-history") [] => {
+                    write_history: History::from_optional_vec(rest)?,
                 },
-                uniq("read-history") [] => {
-                    read_history: History::from_parsed_vec(rest.to_vec())?,
+                opt("read-history") [] => {
+                    read_history: History::from_optional_vec(rest)?,
                 },
-                uniq("ipv6-write-history") [] => {
-                    write_history_v6: History::from_parsed_vec(rest.to_vec())?,
+                opt("ipv6-write-history") [] => {
+                    write_history_v6: History::from_optional_vec(rest)?,
                 },
-                uniq("ipv6-read-history") [] => {
-                    read_history_v6: History::from_parsed_vec(rest.to_vec())?,
+                opt("ipv6-read-history") [] => {
+                    read_history_v6: History::from_optional_vec(rest)?,
                 },
-                uniq("dirreq-write-history") [] => {
-                    dirreq_write_history: History::from_parsed_vec(rest.to_vec())?,
+                opt("dirreq-write-history") [] => {
+                    dirreq_write_history: History::from_optional_vec(rest)?,
                 },
-                uniq("dirreq-read-history") [] => {
-                    dirreq_read_history: History::from_parsed_vec(rest.to_vec())?,
+                opt("dirreq-read-history") [] => {
+                    dirreq_read_history: History::from_optional_vec(rest)?,
                 },
-                uniq("geoip-db-digest") [digest] => {
-                    geoip: digest.to_owned(),
+                opt("geoip-db-digest") [digest] => {
+                    geoip: digest.map(|digest| digest.to_owned()),
                 },
-                uniq("geoip6-db-digest") [digest] => {
-                    geoip6: digest.to_owned(),
+                opt("geoip6-db-digest") [digest] => {
+                    geoip6: digest.map(|digest| digest.to_owned()),
                 },
-                uniq("dirreq-stats-end") [day, hour, duration] => {
-                    dirreq_stats_end: (
-                        date(&format!("{} {}", day, hour))?.1,
-                        duration
-                            .get(1..)
-                            .ok_or_else(|| ErrorKind::MalformedDesc("Wrong pattern for the duration".to_owned()))?
-                            .parse()?,
-                    ),
+                opt("dirreq-stats-end") [day, hour, duration] => {
+                    dirreq_stats_end: parse_end(day, hour, duration)?,
+
                 },
-                uniq("dirreq-v3-ips") [kv] => {
-                    dirreq_v3_ips: create_kv_u64(kv.split(',').collect())?,
+                opt("dirreq-v3-ips") [kv] => {
+                    dirreq_v3_ips: kv.map(|kv| create_kv_u64(kv.split(',').collect())).transpose()?,
                 },
-                uniq("dirreq-v3-reqs") [kv] => {
-                    dirreq_v3_reqs: create_kv_u64(kv.split(',').collect())?,
+                opt("dirreq-v3-reqs") [kv] => {
+                    dirreq_v3_reqs: kv.map(|kv| create_kv_u64(kv.split(',').collect())).transpose()?,
                 },
-                uniq("dirreq-v3-resp") [kv] => {
-                    dirreq_v3_resp: create_kv_u64(kv.split(',').collect())?,
+                opt("dirreq-v3-resp") [kv] => {
+                    dirreq_v3_resp: kv.map(|kv| create_kv_u64(kv.split(',').collect())).transpose()?,
                 },
-                uniq("dirreq-v3-direct-dl") [kv] => {
-                    dirreq_v3_direct_dl: create_kv_u64(kv.split(',').collect())?,
+                opt("dirreq-v3-direct-dl") [kv] => {
+                    dirreq_v3_direct_dl: kv.map(|kv| create_kv_u64(kv.split(',').collect())).transpose()?,
                 },
-                uniq("dirreq-v3-tunneled-dl") [kv] => {
-                    dirreq_v3_tunneled_dl: create_kv_u64(kv.split(',').collect())?,
+                opt("dirreq-v3-tunneled-dl") [kv] => {
+                    dirreq_v3_tunneled_dl: kv.map(|kv| create_kv_u64(kv.split(',').collect())).transpose()?,
                 },
-                uniq("hidserv-stats-end") [day, hour, duration] => {
-                    hidserv_stats_end: (
-                        date(&format!("{} {}", day, hour))?.1,
-                        duration
-                            .get(1..)
-                            .ok_or_else(|| ErrorKind::MalformedDesc("Wrong pattern for the duration".to_owned()))?
-                            .parse()?,
-                    ),
+                opt("hidserv-stats-end") [day, hour, duration] => {
+                    hidserv_stats_end: parse_end(day, hour, duration)?,
                 },
-                uniq("hidserv-rend-relayed-cells") [val] => {
-                    hidserv_rend_relayed_cells : (
-                        val.to_owned(),
-                        hashmap_from_kv_vec(rest.to_vec())?,
-                    ),
+                opt("hidserv-rend-relayed-cells") [val] => {
+                    hidserv_rend_relayed_cells:
+                        val.zip(rest).map(|(val, rest)| -> Result<_, Error> {Ok((
+                            val.to_owned(),
+                            hashmap_from_kv_vec(rest.to_vec())?,
+                        ))}).transpose()?,
                 },
-                uniq("hidserv-dir-onions-seen") [val] => {
-                    hidserv_dir_onions_seen : (
-                        val.to_owned(),
-                        hashmap_from_kv_vec(rest.to_vec())?,
-                    ),
+                opt("hidserv-dir-onions-seen") [val] => {
+                    hidserv_dir_onions_seen:
+                        val.zip(rest).map(|(val, rest)| -> Result<_, Error> {Ok((
+                            val.to_owned(),
+                            hashmap_from_kv_vec(rest.to_vec())?,
+                        ))}).transpose()?,
                 },
-                uniq("hidserv-v3-stats-end") [day, hour, duration] => {
-                    hidserv_v3_stats_end: (
-                        date(&format!("{} {}", day, hour))?.1,
-                        duration
-                            .get(1..)
-                            .ok_or_else(|| ErrorKind::MalformedDesc("Wrong pattern for the duration".to_owned()))?
-                            .parse()?,
-                    ),
+                opt("hidserv-v3-stats-end") [day, hour, duration] => {
+                    hidserv_v3_stats_end: parse_end(day, hour, duration)?,
                 },
-                uniq("hidserv-rend-v3-relayed-cells") [val] => {
-                    hidserv_rend_v3_relayed_cells : (
-                        val.to_owned(),
-                        hashmap_from_kv_vec(rest.to_vec())?,
-                    ),
+                opt("hidserv-rend-v3-relayed-cells") [val] => {
+                    hidserv_rend_v3_relayed_cells:
+                        val.zip(rest).map(|(val, rest)| -> Result<_, Error> {Ok((
+                            val.to_owned(),
+                            hashmap_from_kv_vec(rest.to_vec())?,
+                        ))}).transpose()?,
                 },
-                uniq("hidserv-dir-v3-onions-seen") [val] => {
-                    hidserv_dir_v3_onions_seen : (
-                        val.to_owned(),
-                        hashmap_from_kv_vec(rest.to_vec())?,
-                    ),
+                opt("hidserv-dir-v3-onions-seen") [val] => {
+                    hidserv_dir_v3_onions_seen:
+                        val.zip(rest).map(|(val, rest)| -> Result<_, Error> {Ok((
+                            val.to_owned(),
+                            hashmap_from_kv_vec(rest.to_vec())?,
+                        ))}).transpose()?,
                 },
-                uniq("padding-counts") [day, hour, duration, _unused] => {
-                    padding_counts: (
-                        date(&format!("{} {}", day, hour))?.1,
-                        duration
-                            .get(1..)
-                            .ok_or_else(|| ErrorKind::MalformedDesc("Wrong pattern for the duration".to_owned()))?
-                            .parse()?,
-                        create_kv_u64(rest.to_vec())?,
-                    ),
+                opt("padding-counts") [day, hour, duration, _unused] => {
+                    padding_counts:
+                        if let Some((date, duration)) = parse_end(day, hour, duration)? {
+                            Some((date, duration, create_kv_u64(rest.unwrap_or_default().to_vec())?))
+                        } else {
+                            None
+                        },
                 },
-                uniq("bridge-stats-end") [day, hour, duration] => {
-                    bridge_stats_end: (
-                        date(&format!("{} {}", day, hour))?.1,
-                        duration
-                            .get(1..)
-                            .ok_or_else(|| ErrorKind::MalformedDesc("Wrong pattern for the duration".to_owned()))?
-                            .parse()?,
-                    ),
+                opt("bridge-stats-end") [day, hour, duration] => {
+                    bridge_stats_end: parse_end(day, hour, duration)?,
                 },
-                uniq("bridge-ips") [kv] => {
-                    bridge_ips: create_kv_u64(kv.split(',').collect())?,
+                opt("bridge-ips") [kv] => {
+                    bridge_ips: kv.map(|kv| create_kv_u64(kv.split(',').collect())).transpose()?,
                 },
-                uniq("bridge-ip-versions") [kv] => {
-                    bridge_ip_versions: create_kv_u64(kv.split(',').collect())?,
+                opt("bridge-ip-versions") [kv] => {
+                    bridge_ip_versions: kv.map(|kv| create_kv_u64(kv.split(',').collect())).transpose()?,
                 },
-                uniq("bridge-ip-transports") [kv] => {
-                    bridge_ip_transports: create_kv_u64(kv.split(',').collect())?,
+                opt("bridge-ip-transports") [kv] => {
+                    bridge_ip_transports: kv.map(|kv| create_kv_u64(kv.split(',').collect())).transpose()?,
                 },
                 uniq("router-digest-sha256") [digest] => {
                     router_sha256: digest.to_owned(),
@@ -251,32 +246,32 @@ impl BridgeExtraInfo {
             name: String::new(),
             fingerprint: String::new(),
             master_key: None,
-            transport: String::new(),
-            write_history: History::empty(timestamp),
-            read_history: History::empty(timestamp),
-            write_history_v6: History::empty(timestamp),
-            read_history_v6: History::empty(timestamp),
-            dirreq_write_history: History::empty(timestamp),
-            dirreq_read_history: History::empty(timestamp),
-            geoip: String::new(),
-            geoip6: String::new(),
-            dirreq_stats_end: (timestamp, 0),
-            dirreq_v3_ips: HashMap::new(),
-            dirreq_v3_reqs: HashMap::new(),
-            dirreq_v3_resp: HashMap::new(),
-            dirreq_v3_direct_dl: HashMap::new(),
-            dirreq_v3_tunneled_dl: HashMap::new(),
-            hidserv_stats_end: (timestamp, 0),
-            hidserv_rend_relayed_cells: (String::new(), HashMap::new()),
-            hidserv_dir_onions_seen: (String::new(), HashMap::new()),
-            hidserv_v3_stats_end: (timestamp, 0),
-            hidserv_rend_v3_relayed_cells: (String::new(), HashMap::new()),
-            hidserv_dir_v3_onions_seen: (String::new(), HashMap::new()),
-            padding_counts: (timestamp, 0, HashMap::new()),
-            bridge_stats_end: (timestamp, 0),
-            bridge_ips: HashMap::new(),
-            bridge_ip_versions: HashMap::new(),
-            bridge_ip_transports: HashMap::new(),
+            transport: Vec::new(),
+            write_history: None,
+            read_history: None,
+            write_history_v6: None,
+            read_history_v6: None,
+            dirreq_write_history: None,
+            dirreq_read_history: None,
+            geoip: None,
+            geoip6: None,
+            dirreq_stats_end: None,
+            dirreq_v3_ips: None,
+            dirreq_v3_reqs: None,
+            dirreq_v3_resp: None,
+            dirreq_v3_direct_dl: None,
+            dirreq_v3_tunneled_dl: None,
+            hidserv_stats_end: None,
+            hidserv_rend_relayed_cells: None,
+            hidserv_dir_onions_seen: None,
+            hidserv_v3_stats_end: None,
+            hidserv_rend_v3_relayed_cells: None,
+            hidserv_dir_v3_onions_seen: None,
+            padding_counts: None,
+            bridge_stats_end: None,
+            bridge_ips: None,
+            bridge_ip_versions: None,
+            bridge_ip_transports: None,
             router_sha256: String::new(),
             router_digest: String::new(),
         }
@@ -285,6 +280,7 @@ impl BridgeExtraInfo {
 
 fn create_kv_u64(v: Vec<&str>) -> Result<HashMap<String, u64>, Error> {
     v.iter()
+        .filter(|val| !val.is_empty())
         .map(|val| -> Result<(String, u64), Error> {
             let (a, b) = val
                 .split_once('=')
@@ -292,6 +288,29 @@ fn create_kv_u64(v: Vec<&str>) -> Result<HashMap<String, u64>, Error> {
             Ok((a.to_owned(), b.parse()?))
         })
         .collect()
+}
+
+fn parse_end(
+    day: Option<&str>,
+    hour: Option<&str>,
+    duration: Option<&str>,
+) -> Result<Option<(DateTime<Utc>, u64)>, Error> {
+    use crate::descriptor::nom_combinators::date;
+
+    day.zip(hour)
+        .zip(duration)
+        .map(|((day, hour), duration)| -> Result<_, Error> {
+            Ok((
+                date(&format!("{} {}", day, hour))?.1,
+                duration
+                    .get(1..)
+                    .ok_or_else(|| {
+                        ErrorKind::MalformedDesc("Wrong pattern for the duration".to_owned())
+                    })?
+                    .parse()?,
+            ))
+        })
+        .transpose()
 }
 
 impl Ord for BridgeExtraInfo {

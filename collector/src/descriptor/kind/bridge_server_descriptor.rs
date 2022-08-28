@@ -122,14 +122,14 @@ impl BridgeServerDescriptor {
                     accept_reject: {
                         rest.iter().map(|e| match e.name {
                             "accept" => Ok(Network::Accept(e.values
-                                               .get(0)
+                                               .first()
                                                .ok_or_else(||
                                                     ErrorKind::MalformedDesc(
                                                         "missing parameters to accept".to_owned()
                                                         ))?
                                                .to_string())),
                             "reject" => Ok(Network::Reject(e.values
-                                               .get(0)
+                                               .first()
                                                .ok_or_else(||
                                                     ErrorKind::MalformedDesc(
                                                         "missing parameters to reject".to_owned()
