@@ -5,4 +5,5 @@ members = [
     "experiments/2022-05-rdsys-bridge-stability",
     "experiments/2022-07-fallback-health",
     "experiments/2022-08-china-obfs4-drop",
+    "experiments/2022-10-china-obfs4-raise",
 ]
