@@ -2,6 +2,8 @@ use std::{io, net, num};
 
 use thiserror::Error;
 
+use crate::descriptor;
+
 /// Error type of this crate
 #[derive(Error, Debug)]
 pub enum Error {
@@ -13,6 +15,8 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
     #[error("collector error: {0}")]
     Collector(#[from] ErrorKind),
+    #[error("NetworkStatus error: {0}")]
+    NetworkStatus(#[from] descriptor::kind::bridge_network_status::NetworkStatusBuilderError),
     #[error("ParseInt error: {0}")]
     ParseInt(#[from] num::ParseIntError),
     #[error("ParseIpV6 error: {0}")]

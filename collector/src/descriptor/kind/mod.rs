@@ -1,10 +1,12 @@
 mod bridge_extra_info;
+pub mod bridge_network_status;
 mod bridge_pool_assignment;
 mod bridge_server_descriptor;
 mod server_descriptor;
 pub(crate) mod utils;
 
 pub use bridge_extra_info::BridgeExtraInfo;
+pub use bridge_network_status::BridgeNetworkStatus;
 pub use bridge_pool_assignment::BridgePoolAssignment;
 pub use bridge_server_descriptor::BridgeServerDescriptor;
 pub use server_descriptor::ServerDescriptor;
@@ -210,12 +212,12 @@ impl<'de> Deserialize<'de> for VersionnedType {
 #[derive(Debug)]
 pub enum Descriptor {
     BridgeExtraInfo(Box<BridgeExtraInfo>),
+    BridgeNetworkStatus(Box<BridgeNetworkStatus>),
     BridgePoolAssignment(BridgePoolAssignment),
     BridgeServerDescriptor(Box<BridgeServerDescriptor>),
     ServerDescriptor(Box<ServerDescriptor>),
     /*
         BandwidthFile,
-        BridgeNetworkStatus,
         BridgestrapStats,
         DirKeyCertificate3,
         Directory,
@@ -239,6 +241,9 @@ impl Descriptor {
             Type::BridgeExtraInfo => Ok(Descriptor::BridgeExtraInfo(Box::new(
                 BridgeExtraInfo::parse(buff, vt.version)?,
             ))),
+            Type::BridgeNetworkStatus => Ok(Descriptor::BridgeNetworkStatus(Box::new(
+                BridgeNetworkStatus::parse(buff, vt.version)?,
+            ))),
             Type::BridgePoolAssignment => Ok(Descriptor::BridgePoolAssignment(
                 BridgePoolAssignment::parse(buff, vt.version)?,
             )),
@@ -259,6 +264,13 @@ impl Descriptor {
     pub fn bridge_extra_info(self) -> Result<BridgeExtraInfo, Self> {
         match self {
             Descriptor::BridgeExtraInfo(d) => Ok(*d),
+            _ => Err(self),
+        }
+    }
+
+    pub fn bridge_network_status(self) -> Result<BridgeNetworkStatus, Self> {
+        match self {
+            Descriptor::BridgeNetworkStatus(d) => Ok(*d),
             _ => Err(self),
         }
     }
@@ -360,5 +372,14 @@ mod tests {
         println!("{:?}", res);
         assert_eq!(res.len(), 1);
         assert!(res[0].is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_bridge_network_status() {
+        let mut res = read_test_file("tests/bridge_network_status_test").await;
+        println!("{:?}", res);
+        assert!(res[0].is_ok());
+        let net = res.pop().unwrap().unwrap().bridge_network_status().unwrap().network_status;
+        assert_eq!(net.len(), 2);
     }
 }
