@@ -1,11 +1,12 @@
 mod bridge_extra_info;
-mod bridge_network_status;
+pub mod bridge_network_status;
 mod bridge_pool_assignment;
 mod bridge_server_descriptor;
 mod server_descriptor;
 pub(crate) mod utils;
 
 pub use bridge_extra_info::BridgeExtraInfo;
+pub use bridge_network_status::BridgeNetworkStatus;
 pub use bridge_pool_assignment::BridgePoolAssignment;
 pub use bridge_server_descriptor::BridgeServerDescriptor;
 pub use server_descriptor::ServerDescriptor;
@@ -16,8 +17,6 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, ErrorKind};
-
-use self::bridge_network_status::BridgeNetworkStatus;
 
 /// Type of a descriptor, unversionned
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -377,8 +376,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_bridge_network_status() {
-        let res = read_test_file("tests/bridge_network_status_test").await;
+        let mut res = read_test_file("tests/bridge_network_status_test").await;
         println!("{:?}", res);
         assert!(res[0].is_ok());
+        let net = res.pop().unwrap().unwrap().bridge_network_status().unwrap().network_status;
+        assert_eq!(net.len(), 2);
     }
 }

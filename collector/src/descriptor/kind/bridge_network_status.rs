@@ -1,10 +1,7 @@
 use derive_builder;
-use std::net::SocketAddrV6;
-use std::{
-    vec,
-    collections::HashMap,
-    net::{Ipv4Addr, SocketAddrV4},
-};
+use itertools::Itertools;
+use std::net::SocketAddr;
+use std::{collections::HashMap, net::Ipv4Addr, vec};
 
 use chrono::{DateTime, Utc};
 use derive_builder::Builder;
@@ -12,7 +9,7 @@ use derive_builder::Builder;
 use super::utils::*;
 use crate::error::{Error, ErrorKind};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Header {
     pub published_timestamp: DateTime<Utc>,
     pub flags: HashMap<String, String>,
@@ -29,37 +26,20 @@ impl Header {
                 published_timestamp: date(&format!("{} {}", day, hour))?.1,
             },
            uniq("flag-thresholds") [] => {
-                // TODO should reject when split_once fail
                 flags: rest.iter()
-                            .filter_map(|v| v.split_once('='))
-                            .map(|(k,v)| (k.to_owned(), v.to_owned()))
-                            .collect(),
+                            .map(|v| v.split_once('=').ok_or_else(|| ErrorKind::MalformedDesc("Header flags are malformed".to_owned())))
+                            .map_ok(|(k,v)| (k.to_owned(), v.to_owned()))
+                            .collect::<Result<HashMap<_,_>,_>>()?,
             },
-            uniq("fingerprint") [] => {
-                fingerprint: rest.join(" "),
+            uniq("fingerprint") [fingerprint] => {
+                fingerprint: fingerprint.to_string(),
             },
 
         }})
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Address {
-    Ipv4(SocketAddrV4),
-    Ipv6(SocketAddrV6),
-}
-
-impl Address {
-    fn parse(input: &str) -> Result<Self, Error> {
-        if let Ok(addr) = input.parse::<SocketAddrV4>() {
-            Ok(Self::Ipv4(addr))
-        } else {
-            Ok(Self::Ipv6(input.parse::<SocketAddrV6>()?))
-        }
-    }
-}
-
-#[derive(Debug, Builder, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Builder)]
 pub struct NetworkStatus {
     pub nickname: String,
     pub identity: String,
@@ -68,8 +48,8 @@ pub struct NetworkStatus {
     pub ipv4: Ipv4Addr,
     pub or_port: u16,
     pub dir_port: u16,
-    #[builder(setter(custom))]
-    pub addresses: Vec<Address>,
+    #[builder(setter(custom), default)]
+    pub addresses: Vec<SocketAddr>,
     pub flags: Vec<String>,
     pub bandwidth: u64,
     #[builder(setter(custom))]
@@ -77,7 +57,7 @@ pub struct NetworkStatus {
 }
 
 impl NetworkStatusBuilder {
-    fn addresses(mut self, value: Address) -> Self {
+    fn addresses(mut self, value: SocketAddr) -> Self {
         match self.addresses {
             Some(ref mut addr) => addr.push(value),
             None => self.addresses = Some(vec![value]),
@@ -100,7 +80,7 @@ pub enum Policy {
     Reject(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct BridgeNetworkStatus {
     pub header: Header,
     pub network_status: Vec<NetworkStatus>,
@@ -118,21 +98,38 @@ impl BridgeNetworkStatus {
             .into());
         }
 
-        let header = Header::parse(&format!("{}\n", input.lines().take(3).collect::<Vec<_>>().join("\n")))?;
+        let header = Header::parse(&format!(
+            "{}\n",
+            input.lines().take(3).collect::<Vec<_>>().join("\n")
+        ))?;
 
         let mut network_status = Vec::new();
+        let mut first = true;
 
-        input.lines().skip(3).fold(
+        let builder = input.lines().skip(3).fold(
             Ok(NetworkStatusBuilder::default()),
             |acc, line| -> Result<NetworkStatusBuilder, Error> {
-                match parse_line(line) {
+                let mut builder = acc?;
+                match parse_line(line)? {
                     ("r", params) => {
-                        let mut builder = acc?;
-
-                        if let Ok(net) = builder.build() {
-                            network_status.push(net);
-                            builder = NetworkStatusBuilder::default();
+                        if params.len() < 8 {
+                            return Err(Error::Collector(ErrorKind::MalformedDesc(
+                                "r lines need at least 8 parameters".to_owned(),
+                            )));
                         }
+
+                        match builder.build() {
+                            Ok(net) => {
+                                network_status.push(net);
+                                builder = NetworkStatusBuilder::default();
+                            }
+                            Err(err) => {
+                                if !first {
+                                    return Err(Error::NetworkStatus(err));
+                                }
+                            }
+                        }
+                        first = false;
 
                         Ok(builder
                             .nickname(params[0].to_string())
@@ -145,17 +142,28 @@ impl BridgeNetworkStatus {
                             .to_owned())
                     }
                     ("a", params) => {
-                        let builder = acc?;
-                        Ok(builder.addresses(Address::parse(params[0])?))
+                        if params.len() == 0 {
+                            return Err(Error::Collector(ErrorKind::MalformedDesc(
+                                "a lines need at least 1 parameters".to_owned(),
+                            )));
+                        }
+                        Ok(builder.addresses(params[0].parse()?))
                     }
                     ("s", params) => {
-                        let mut builder = acc?;
-                        Ok(builder
-                            .flags(params.iter().map(|elem| elem.to_string()).collect())
-                            .to_owned())
+                        if params.len() == 0 {
+                            Ok(builder.flags(vec![]).to_owned())
+                        } else {
+                            Ok(builder
+                                .flags(params.iter().map(|elem| elem.to_string()).collect())
+                                .to_owned())
+                        }
                     }
                     ("w", params) => {
-                        let mut builder = acc?;
+                        if params.len() == 0 {
+                            return Err(Error::Collector(ErrorKind::MalformedDesc(
+                                "w lines need at least 1 parameters".to_owned(),
+                            )));
+                        }
                         Ok(builder
                             .bandwidth(
                                 params[0]
@@ -169,22 +177,35 @@ impl BridgeNetworkStatus {
                             .to_owned())
                     }
                     ("p", params) => {
-                        let builder = acc?;
+                        if params.len() < 2 {
+                            return Err(Error::Collector(ErrorKind::MalformedDesc(
+                                "p lines need at least 2 parameters".to_owned(),
+                            )));
+                        }
                         let pol = match params[0] {
                             "accept" => Policy::Accept(params[1].to_owned()),
                             "reject" => Policy::Reject(params[1].to_owned()),
-                            _ => unreachable!(),
+                            any => {
+                                return Err(Error::Collector(ErrorKind::MalformedDesc(format!(
+                                    "{} is not a valid netywork policy",
+                                    any
+                                ))));
+                            }
                         };
                         Ok(builder.policies(pol))
                     }
                     // handle empty line
-                    ("", _) => acc,
-                    (_any, _value) => {
-                        unreachable!()
-                    }
+                    ("", _) => Ok(builder),
+                    (any, _) => Err(Error::Collector(ErrorKind::MalformedDesc(format!(
+                        "Lines starting with \"{}\" are not valid",
+                        any
+                    )))),
                 }
             },
         )?;
+
+        //build the last network status parsed
+        network_status.push(builder.build()?);
 
         Ok(BridgeNetworkStatus {
             header,
@@ -193,7 +214,14 @@ impl BridgeNetworkStatus {
     }
 }
 
-fn parse_line(input: &str) -> (&str, Vec<&str>) {
+fn parse_line(input: &str) -> Result<(&str, Vec<&str>), Error> {
     let t = input.split(' ').collect::<Vec<&str>>();
-    (t[0], t[1..].to_vec())
+    if let Some(first) = t.first() {
+        Ok((first, t[1..].to_vec()))
+    } else {
+        Err(Error::Collector(ErrorKind::MalformedDesc(format!(
+            "Line \"{}\" malformed",
+            input
+        ))))
+    }
 }
