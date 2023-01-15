@@ -21,21 +21,21 @@ impl Header {
         use crate::descriptor::nom_combinators::*;
         let mut desc = descriptor_lines(input)?;
         Ok(extract_desc! {
-        desc => Header rest {
-            uniq("published") [day, hour] => {
-                published_timestamp: date(&format!("{} {}", day, hour))?.1,
-            },
-           uniq("flag-thresholds") [] => {
-                flags: rest.iter()
-                            .map(|v| v.split_once('=').ok_or_else(|| ErrorKind::MalformedDesc("Header flags are malformed".to_owned())))
-                            .map_ok(|(k,v)| (k.to_owned(), v.to_owned()))
-                            .collect::<Result<HashMap<_,_>,_>>()?,
-            },
-            uniq("fingerprint") [fingerprint] => {
-                fingerprint: fingerprint.to_string(),
-            },
-
-        }})
+            desc => Header rest {
+                uniq("published") [day, hour] => {
+                    published_timestamp: date(&format!("{} {}", day, hour))?.1,
+                },
+                uniq("flag-thresholds") [] => {
+                    flags: rest.iter()
+                                .map(|v| v.split_once('=').ok_or_else(|| ErrorKind::MalformedDesc("Header flags are malformed".to_owned())))
+                                .map_ok(|(k,v)| (k.to_owned(), v.to_owned()))
+                                .collect::<Result<HashMap<_,_>,_>>()?,
+                },
+                uniq("fingerprint") [fingerprint] => {
+                    fingerprint: fingerprint.to_string(),
+                },
+            }
+        })
     }
 }
 
