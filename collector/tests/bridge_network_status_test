@@ -1,0 +1,14 @@
+@type bridge-network-status 1.2
+published 2023-01-11 21:58:54
+flag-thresholds stable-uptime=1826124 stable-mtbf=2508985 fast-speed=102000 guard-wfu=98.000% guard-tk=691200 guard-bw-inc-exits=4638000 guard-bw-exc-exits=4646000 enough-mtbf=1 ignoring-advertised-bws=0
+fingerprint BA44A889E64B93FAA2B114E02C2A279A8555C533
+r P0WP0W AF/U197LslAFW4YVeeb9x5rRe+4 Evzhmw3xQB3fTCvBsjmRJOKA7Lg 2023-01-11 19:44:36 10.173.40.233 59324 0
+s Running V2Dir Valid
+w Bandwidth=4193
+p reject 1-65535
+r Unnamed AHgpRvTFTOHQKPIeVB74RA7KoO4 qmlRcoobuO4SeaByBJDGgxDZRdU 2023-01-11 21:42:42 10.179.171.215 60231 0
+a [fd9f:2e19:3bcf::3a:c7a0]:60231
+s Running V2Dir Valid
+w Bandwidth=57
+p reject 1-65535
+
