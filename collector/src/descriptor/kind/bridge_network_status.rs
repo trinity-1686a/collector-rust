@@ -149,15 +149,9 @@ impl BridgeNetworkStatus {
                         }
                         Ok(builder.addresses(params[0].parse()?))
                     }
-                    ("s", params) => {
-                        if params.len() == 0 {
-                            Ok(builder.flags(vec![]).to_owned())
-                        } else {
-                            Ok(builder
-                                .flags(params.iter().map(|elem| elem.to_string()).collect())
-                                .to_owned())
-                        }
-                    }
+                    ("s", params) => Ok(builder
+                        .flags(params.iter().map(|elem| elem.to_string()).collect())
+                        .to_owned()),
                     ("w", params) => {
                         if params.len() == 0 {
                             return Err(Error::Collector(ErrorKind::MalformedDesc(
