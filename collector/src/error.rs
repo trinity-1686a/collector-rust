@@ -1,4 +1,4 @@
-use std::{io, net, num};
+use std::{io, net, num, str::ParseBoolError};
 
 use thiserror::Error;
 
@@ -21,6 +21,8 @@ pub enum Error {
     ParseInt(#[from] num::ParseIntError),
     #[error("ParseIpV6 error: {0}")]
     ParseIpV6(#[from] net::AddrParseError),
+    #[error("ParseBool error: {0}")]
+    ParseBool(#[from] ParseBoolError),
 }
 
 #[derive(Debug, Clone)]
