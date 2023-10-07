@@ -12,9 +12,14 @@ async fn main() {
         .await
         .unwrap();
     println!("Starting download");
-    
+
     let supported = [Type::BridgeServerDescriptor];
-    let supported = [Type::BridgeServerDescriptor, Type::BridgePoolAssignment, Type::ServerDescriptor, Type::BridgeNetworkStatus];
+    let supported = [
+        Type::BridgeServerDescriptor,
+        Type::BridgePoolAssignment,
+        Type::ServerDescriptor,
+        Type::BridgeNetworkStatus,
+    ];
     let supported = [Type::BridgeNetworkStatus];
     collector
         .download_descriptors(
@@ -29,7 +34,7 @@ async fn main() {
     return;
 
     let collector = Arc::new(collector);
-    
+
     for typ in supported {
         println!("Decoding {:?}", typ);
         process_type(collector.clone(), typ).await;
@@ -56,20 +61,16 @@ async fn process_type(collector: Arc<CollecTor>, typ: Type) {
             .unwrap();
         let collector = collector.clone();
         let typ = typ.clone();
-        handles.push(
-            tokio::spawn(
-                Box::pin(async move {
-                    collector.stream_descriptors(typ, start_date..end_date)
-                        .for_each(|d|
-                            futures::future::ready(
-                                if let Err(e) = d {
-                                    println!("error: {:?}", e);
-                                }
-                            )
-                        ).await
-                }
-            ))
-        );
+        handles.push(tokio::spawn(Box::pin(async move {
+            collector
+                .stream_descriptors(typ, start_date..end_date)
+                .for_each(|d| {
+                    futures::future::ready(if let Err(e) = d {
+                        println!("error: {:?}", e);
+                    })
+                })
+                .await
+        })));
         start_date = end_date;
     }
 

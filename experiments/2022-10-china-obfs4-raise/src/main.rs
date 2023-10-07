@@ -8,11 +8,9 @@ use collector::CollecTor;
 
 #[tokio::main]
 async fn main() {
-    let collector = CollecTor::new(
-        "/home/trinity/dev/tor/metrics/collector-processing/data",
-    )
-    .await
-    .unwrap();
+    let collector = CollecTor::new("/home/trinity/dev/tor/metrics/collector-processing/data")
+        .await
+        .unwrap();
     /*
     let collector = CollecTor::new_with_url(
         "/home/trinity/dev/tor/metrics/collector-processing/data",

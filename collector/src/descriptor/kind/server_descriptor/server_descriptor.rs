@@ -4,9 +4,9 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV6};
 
 use chrono::{DateTime, Utc};
 
+use super::Network;
 use crate::descriptor::kind::utils::*;
 use crate::error::{Error, ErrorKind};
-use super::Network;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]

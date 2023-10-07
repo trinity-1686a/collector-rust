@@ -145,8 +145,10 @@ impl File {
     }
 
     pub fn overlap<R: RangeBounds<DateTime<Utc>>>(&self, time_range: &R) -> bool {
-        if time_range.contains(&self.first_published) || time_range.contains(&self.last_published)
-        || time_range.contains(&self.last_modified) {
+        if time_range.contains(&self.first_published)
+            || time_range.contains(&self.last_published)
+            || time_range.contains(&self.last_modified)
+        {
             return true;
         }
         // only case left is when time_range is strictly included in first..=last

@@ -11,7 +11,7 @@ pub use bridge_network_status::BridgeNetworkStatus;
 pub use bridge_pool_assignment::BridgePoolAssignment;
 pub use bridge_server_descriptor::BridgeServerDescriptor;
 pub use bridgestrap_stats::BridgestrapStats;
-pub use server_descriptor::{ServerDescriptor, Microdescriptor, NetworkStatusMicrodescConsensus3};
+pub use server_descriptor::{Microdescriptor, NetworkStatusMicrodescConsensus3, ServerDescriptor};
 
 use std::fmt;
 use std::str::FromStr;
@@ -258,9 +258,11 @@ impl Descriptor {
             Type::Microdescriptor => Ok(Descriptor::Microdescriptor(Box::new(
                 Microdescriptor::parse(buff, vt.version)?,
             ))),
-            Type::NetworkStatusMicrodescConsensus3 => Ok(Descriptor::NetworkStatusMicrodescConsensus3(Box::new(
-                NetworkStatusMicrodescConsensus3::parse(buff, vt.version)?,
-            ))),
+            Type::NetworkStatusMicrodescConsensus3 => {
+                Ok(Descriptor::NetworkStatusMicrodescConsensus3(Box::new(
+                    NetworkStatusMicrodescConsensus3::parse(buff, vt.version)?,
+                )))
+            }
             Type::ServerDescriptor => Ok(Descriptor::ServerDescriptor(Box::new(
                 ServerDescriptor::parse(buff, vt.version)?,
             ))),
@@ -412,7 +414,13 @@ mod tests {
         let mut res = read_test_file("tests/bridge_strap_stats_test").await;
         println!("{:?}", res);
         assert!(res[0].is_ok());
-        let data = res.pop().unwrap().unwrap().bridgestrap_stats().unwrap().stats;
+        let data = res
+            .pop()
+            .unwrap()
+            .unwrap()
+            .bridgestrap_stats()
+            .unwrap()
+            .stats;
         assert_eq!(data.len(), 7);
     }
 }

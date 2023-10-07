@@ -201,7 +201,7 @@ impl<'a> FileDownloader<'a> {
 
                 loop {
                     let Ok(len) = file.read(&mut buf).await else {
-                        return false
+                        return false;
                     };
                     if len == 0 {
                         break;
@@ -211,7 +211,9 @@ impl<'a> FileDownloader<'a> {
 
                 let res = hasher.finalize();
                 res.as_slice() == sha256
-            }).await.unwrap_or(false);
+            })
+            .await
+            .unwrap_or(false);
             if hash_ok {
                 return Ok(());
             }

@@ -40,7 +40,7 @@ impl Microdescriptor {
                     onion_key: certif.to_owned(),
                 },
                 uniq("ntor-onion-key") [b64_key] => {
-                    ntor_onion_key: b64_key.to_string(), 
+                    ntor_onion_key: b64_key.to_string(),
                 },
                 opt("family") [] => {
                     family: rest.map(|family_strs| family_strs.iter()
@@ -124,7 +124,7 @@ EU7E8R+VxAEEOEg49if8/lwLVVMWkwkmh3ZZCvzLXE07M7x/pUrdAgMBAAE=
             id: [("ed25519".to_string(), "H2XNSv4eCVNaW9WMo6GlYryaU20F3P+Xwbt2v+4mDm0".to_string())].into_iter().collect(),
             sha256: "13a445a97c674740cb6c3e99ccc353cc0257469fa9857fca3aedb734ab2fd435".to_string(),
         };
-        
+
         let parsed = Microdescriptor::parse(document, (1, 0)).unwrap();
         assert_eq!(parsed, expected)
     }
