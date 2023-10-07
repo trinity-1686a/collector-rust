@@ -36,6 +36,10 @@ impl FileReader {
                     }
                     let mut body = String::new();
                     entry.read_to_string(&mut body).await?;
+                    if body.is_empty() {
+                        eprintln!("{:?}", entry.header().path().unwrap())
+                    }
+
                     yield body;
                 }
             } else {

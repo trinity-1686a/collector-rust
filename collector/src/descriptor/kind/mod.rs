@@ -11,7 +11,7 @@ pub use bridge_network_status::BridgeNetworkStatus;
 pub use bridge_pool_assignment::BridgePoolAssignment;
 pub use bridge_server_descriptor::BridgeServerDescriptor;
 pub use bridgestrap_stats::BridgestrapStats;
-pub use server_descriptor::ServerDescriptor;
+pub use server_descriptor::{ServerDescriptor, Microdescriptor, NetworkStatusMicrodescConsensus3};
 
 use std::fmt;
 use std::str::FromStr;
@@ -218,16 +218,16 @@ pub enum Descriptor {
     BridgePoolAssignment(BridgePoolAssignment),
     BridgeServerDescriptor(Box<BridgeServerDescriptor>),
     BridgestrapStats(Box<BridgestrapStats>),
+    Microdescriptor(Box<Microdescriptor>),
+    NetworkStatusMicrodescConsensus3(Box<NetworkStatusMicrodescConsensus3>),
     ServerDescriptor(Box<ServerDescriptor>),
     /*
         BandwidthFile,
         DirKeyCertificate3,
         Directory,
         ExtraInfo,
-        Microdescriptor,
         NetworkStatus2,
         NetworkStatusConsensus3,
-        NetworkStatusMicrodescConsensus3,
         NetworkStatusVote3,
         SnowflakeStats,
         Tordnsel,
@@ -237,7 +237,7 @@ pub enum Descriptor {
 
 impl Descriptor {
     pub fn decode(raw_descriptor: &str) -> Result<Self, Error> {
-        let (buff, vt) = VersionnedType::parse(raw_descriptor)?;
+        let (buff, vt) = VersionnedType::parse(raw_descriptor).expect(&format!(""));
 
         match vt.ttype {
             Type::BridgeExtraInfo => Ok(Descriptor::BridgeExtraInfo(Box::new(
@@ -254,6 +254,12 @@ impl Descriptor {
             ))),
             Type::BridgestrapStats => Ok(Descriptor::BridgestrapStats(Box::new(
                 BridgestrapStats::parse(buff, vt.version)?,
+            ))),
+            Type::Microdescriptor => Ok(Descriptor::Microdescriptor(Box::new(
+                Microdescriptor::parse(buff, vt.version)?,
+            ))),
+            Type::NetworkStatusMicrodescConsensus3 => Ok(Descriptor::NetworkStatusMicrodescConsensus3(Box::new(
+                NetworkStatusMicrodescConsensus3::parse(buff, vt.version)?,
             ))),
             Type::ServerDescriptor => Ok(Descriptor::ServerDescriptor(Box::new(
                 ServerDescriptor::parse(buff, vt.version)?,

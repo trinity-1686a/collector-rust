@@ -22,7 +22,7 @@ async fn main() {
     .unwrap();
     */
     let start_date = Utc.ymd(2022, 10, 15).and_hms(0, 0, 0);
-    let end_date = Utc.ymd(2022, 11, 30).and_hms(23, 59, 59);
+    let end_date = Utc.ymd(2022, 12, 30).and_hms(23, 59, 59);
     eprintln!("Starting download");
     collector
         .download_descriptors(

@@ -8,28 +8,30 @@ use collector::CollecTor;
 
 #[tokio::main]
 async fn main() {
-    let collector = CollecTor::new_with_url(
+    let collector = CollecTor::new(
         "/home/trinity/dev/tor/metrics/collector-processing/data",
-        None,
+    //    None,
     )
     .await
     .unwrap();
-    let start_date = Utc.ymd(2022, 7, 1).and_hms(0, 0, 0);
-    let end_date = Utc.ymd(2022, 8, 9).and_hms(0, 0, 0);
+    let start_date = Utc.ymd(2023, 4, 20).and_hms(0, 0, 0);
+    //let end_date = Utc.ymd(2023, 5, 1).and_hms(0, 0, 0);
     eprintln!("Starting download");
+    let time_range = start_date..;
     collector
         .download_descriptors(
             &[Type::BridgeExtraInfo, Type::BridgePoolAssignment],
-            start_date..end_date,
+            time_range.clone(),
             None,
         )
         .await
         .unwrap();
     eprintln!("Download successfull, processing");
 
-    let assigment = stable_bridge_assigment(&collector, start_date..end_date).await;
+    let assigment = stable_bridge_assigment(&collector, time_range.clone()).await;
 
-    let bridge_usage_china = bridge_usage_country(&collector, start_date..end_date, "cn").await;
+    let bridge_usage_china = bridge_usage_country(&collector, time_range.clone(), "ir").await;
+    // let bridge_usage_china = bridge_usage_country(&collector, time_range.clone(), "cn").await;
 
     let distribution_usage_china: BTreeMap<Date<Utc>, HashMap<String, u64>> = bridge_usage_china
         .into_iter()

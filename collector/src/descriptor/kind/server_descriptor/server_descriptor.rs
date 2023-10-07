@@ -4,14 +4,9 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV6};
 
 use chrono::{DateTime, Utc};
 
-use super::utils::*;
+use crate::descriptor::kind::utils::*;
 use crate::error::{Error, ErrorKind};
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Network {
-    Accept(String),
-    Reject(String),
-}
+use super::Network;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]

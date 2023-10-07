@@ -105,7 +105,7 @@ impl CollecTor {
                     .1
                     .download(client.clone(), self.index_url.is_some())
             }))
-            .buffer_unordered(8)
+            .buffer_unordered(num_cpus::get())
             .filter_map(|res| async { res.err() })
             .collect()
             .await;
@@ -194,19 +194,25 @@ impl<'a> FileDownloader<'a> {
     async fn download_inner(&self, client: Client, download: bool) -> Result<(), Error> {
         let data_path = self.data_path();
         if let Ok(mut file) = fs::File::open(&data_path).await {
-            let mut buf = vec![0; 256 * 1024];
-            let mut hasher = Sha256::new();
+            let sha256 = self.file.sha256;
+            let hash_ok = tokio::spawn(async move {
+                let mut buf = vec![0; 256 * 1024];
+                let mut hasher = Sha256::new();
 
-            loop {
-                let len = file.read(&mut buf).await?;
-                if len == 0 {
-                    break;
+                loop {
+                    let Ok(len) = file.read(&mut buf).await else {
+                        return false
+                    };
+                    if len == 0 {
+                        break;
+                    }
+                    hasher.update(&buf[..len]);
                 }
-                hasher.update(&buf[..len]);
-            }
 
-            let res = hasher.finalize();
-            if res.as_slice() == self.file.sha256 {
+                let res = hasher.finalize();
+                res.as_slice() == sha256
+            }).await.unwrap_or(false);
+            if hash_ok {
                 return Ok(());
             }
         }
